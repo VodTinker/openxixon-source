@@ -32,3 +32,4 @@ temp/
 gatus/
 *.service
 scripts/check-spa.sh
+supabase/.temp/
