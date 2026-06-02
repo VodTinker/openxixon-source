@@ -1,0 +1,181 @@
+---
+import Layout from '../layouts/Layout.astro'
+import { getSession, createSupabaseClient } from '../lib/supabase'
+
+let errorMsg = ''
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  const email = form.get('email') as string
+  const password = form.get('password') as string
+
+  const supabase = createSupabaseClient(Astro.cookies, Astro.request)
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  if (error) console.error('[login] Supabase error:', error.status, error.message)
+
+  if (error) {
+    errorMsg = error.message === 'Invalid login credentials'
+      ? 'Email o contraseña incorrectos.'
+      : `Error ${error.status}: ${error.message}`
+  } else {
+    return Astro.redirect('/app/dashboard')
+  }
+} else {
+  const { user } = await getSession(Astro.cookies, Astro.request)
+  if (user) return Astro.redirect('/app/dashboard')
+}
+---
+
+<Layout title="Entrar">
+  <div class="auth-wrap">
+    <div class="auth-box animate-up">
+      <div class="auth-header-px">
+        <svg class="auth-icon" width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M2 11h14v2H2zm10-2h2v2h-2z"/>
+          <path d="M10 7h2v10h-2zm2 6h2v2h-2zM6 2h12v2H6zm0 18h12v2H6zM4 4h2v5H4zm0 11h2v5H4zM18 4h2v16h-2z"/>
+        </svg>
+        <h1>Entrar</h1>
+      </div>
+      <p class="auth-sub">Accede a tu cuenta de OpenXixón.</p>
+
+      <form method="post" class="auth-form">
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" placeholder="tu@email.com" required autocomplete="email" />
+        </div>
+        <div class="field">
+          <div class="label-row">
+            <label for="password">Contraseña</label>
+            <a href="/reset-password" class="forgot">¿La olvidaste?</a>
+          </div>
+          <input type="password" id="password" name="password" placeholder="Tu contraseña" required autocomplete="current-password" />
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">
+          Entrar
+        </button>
+      </form>
+
+      {errorMsg && <p class="auth-msg auth-error">{errorMsg}</p>}
+
+      <p class="auth-footer">¿No tienes cuenta? <a href="/registro">Regístrate gratis</a></p>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .auth-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 4rem 0;
+  }
+
+  .auth-box {
+    width: 100%;
+    max-width: 400px;
+    padding: 2.5rem;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    box-shadow: 8px 8px 0px var(--border);
+  }
+
+  .auth-header-px {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .auth-icon { color: var(--accent); }
+
+  .auth-box h1 {
+    font-size: 1.75rem;
+    margin: 0;
+  }
+
+  .auth-sub {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+  }
+
+  .auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-dim);
+  }
+
+  .forgot {
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+  }
+  .forgot:hover { color: var(--amber); }
+
+  .auth-msg {
+    font-size: 0.8125rem;
+    margin-top: 0.75rem;
+  }
+  .auth-error { color: var(--brick); }
+
+  .auth-footer {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+  .auth-footer a { color: var(--amber); font-weight: 500; }
+
+  .auth-form .btn {
+    border-radius: 0;
+    border: 2px solid var(--text);
+    box-shadow: 4px 4px 0px var(--text);
+    transition: transform 0.1s steps(2), box-shadow 0.1s steps(2);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.5rem;
+  }
+  .auth-form .btn:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px var(--text);
+  }
+  .auth-form .btn:active {
+    transform: translate(4px, 4px);
+    box-shadow: 0px 0px 0px var(--text);
+  }
+
+  .auth-form input {
+    border: 2px solid var(--border);
+    border-radius: 0;
+    padding: 0.75rem 1rem;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.875rem;
+    transition: border-color 0.1s steps(2), box-shadow 0.1s steps(2);
+  }
+  .auth-form input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 4px 4px 0px color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+</style>

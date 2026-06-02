@@ -1,0 +1,449 @@
+---
+import Layout from '../layouts/Layout.astro'
+
+const changes = [
+  {
+    version: 'v0.9.0',
+    date: '2026-06-01',
+    type: 'improved',
+    title: 'Robustez visual y mapas vectoriales',
+    body: 'Estados vacíos consistentes en todas las páginas con componente EmptyState. Resiliencia SSR: try/catch en endpoints API y páginas Astro para fallos de DB. Mapas migrados de Leaflet raster a MapLibre GL JS vectorial (Carto Dark Matter) en /incidencias y /multas. Gráficos de multas reescritos con MultasChart reutilizable (mismo UI pixel-art que incidencias). Precios ocultos temporalmente — página de precios muestra "Próximamente". Eliminada la mascota. Alertas por email funcionales: Edge Function + cron cada 15 min evalúa umbrales de calidad del aire. Envío real vía SMTP local del VPS (no servicio externo).',
+  },
+  {
+    version: 'v0.8.0',
+    date: '2026-04-28',
+    type: 'new',
+    title: 'Página de estado del sistema',
+    body: 'Nueva página /status pública con uptime bars de 60 días, badges por servicio, latencia y porcentaje de disponibilidad. Monitoring real con Gatus (Go) via localhost — sin pasar por Cloudflare. Historial de incidencias auto-detectado desde los checks de Gatus. Fallback a Supabase directo si Gatus no está disponible.',
+  },
+  {
+    version: 'v0.7.0',
+    date: '2026-04-27',
+    type: 'improved',
+    title: 'Rediseño UX completo',
+    body: 'Dashboard expandible con gráficas inline, nueva página /datos con catálogo completo, /faq dedicada, landing recortada al núcleo y nav simplificada a 4 links planos.',
+  },
+  {
+    version: 'v0.6.0',
+    date: '2026-04-26',
+    type: 'new',
+    title: 'Inversiones públicas + Dashboard bento',
+    body: 'Dataset de inversiones públicas municipales. Refactor del dashboard a layout bento con datos reales. Mejoras en pricing (mascota con estados, PxCheck). Navegación hover-only sin JS.',
+  },
+  {
+    version: 'v0.5.1',
+    date: '2026-04-25',
+    type: 'fixed',
+    title: 'Fixes de charts',
+    body: 'Tooltip NES con cuadrado de color por serie. PixelBar maneja anchos negativos (pirámide varones). Islands migradas a client:only=react. Eliminados banners de error obsoletos.',
+  },
+  {
+    version: 'v0.5.0',
+    date: '2026-04-25',
+    type: 'new',
+    title: 'Gráficas pixel art',
+    body: 'Charts con estética pixel art: línea stepAfter con PixelDot, barras PixelBar animadas, tooltip NES-style. Aplicadas a calidad del aire, incidencias y pirámide demográfica de población.',
+  },
+  {
+    version: 'v0.4.0',
+    date: '2026-04-23',
+    type: 'improved',
+    title: 'SPA guardrails',
+    body: 'Hooks de astro:page-load, linter de patrones peligrosos y pre-commit para prevenir bugs de inicialización en modo SPA (Chart.js, lazy-reveal).',
+  },
+  {
+    version: 'v0.3.1',
+    date: '2026-04-22',
+    type: 'fixed',
+    title: 'Fix ingesta y autenticación',
+    body: 'Batch inserts en la Edge Function de ingesta para evitar límites de memoria. Fix de autenticación SSR con POST forms y parsing de cookies.',
+  },
+  {
+    version: 'v0.3.0',
+    date: '2026-04-22',
+    type: 'new',
+    title: 'Multas de tráfico e Incidencias urbanas',
+    body: 'Dos nuevos datasets: multas de tráfico y incidencias urbanas. Endpoints /api/multas y /api/incidencias con páginas dedicadas.',
+  },
+  {
+    version: 'v0.2.0',
+    date: '2026-04-21',
+    type: 'new',
+    title: 'Preparación de lanzamiento',
+    body: 'Páginas legales (aviso, privacidad, cookies), 404 pixel-art, página de precios, visualizaciones de datasets en landing y beta badge.',
+  },
+  {
+    version: 'v0.1.0',
+    date: '2026-04-20',
+    type: 'new',
+    title: 'MVP inicial',
+    body: 'Proyecto base: tema dual claro/oscuro, dashboard LIVE con calidad del aire, widget de API key interactivo, tabs de código, ingesta cron y dominio vodtinker.dev.',
+  },
+] as const
+
+const typeLabel: Record<string, string> = {
+  new: 'Nuevo',
+  improved: 'Mejora',
+  fixed: 'Fix',
+  breaking: 'Breaking',
+}
+---
+
+<Layout title="Changelog">
+<div class="container">
+
+  <header class="cl-header">
+    <div class="breadcrumb">
+      <a href="/">Inicio</a>
+      <span class="sep">/</span>
+      <span>Changelog</span>
+    </div>
+    <div class="cl-header-row">
+      <div>
+        <h1 class="cl-title">Changelog</h1>
+        <p class="cl-sub">Portal de datos abiertos de Gijón — historial de versiones</p>
+      </div>
+      <span class="cl-count">{changes.length} releases</span>
+    </div>
+  </header>
+
+  <!-- Filtros -->
+  <div class="filter-bar">
+    <button class="filter-btn is-active" data-filter="all">Todos</button>
+    <button class="filter-btn" data-filter="new">Nuevo</button>
+    <button class="filter-btn" data-filter="improved">Mejora</button>
+    <button class="filter-btn" data-filter="fixed">Fix</button>
+  </div>
+
+  <!-- Timeline -->
+  <div class="timeline" id="timeline">
+    {changes.map((c, i) => (
+      <div class="tl-entry" data-type={c.type}>
+
+        <div class="tl-meta">
+          <span class="tl-version">{c.version}</span>
+          <span class="tl-date">{c.date}</span>
+        </div>
+
+        <div class="tl-connector">
+          <div class:list={['tl-dot', `dot--${c.type}`, i === 0 && 'dot--latest']}></div>
+          {i < changes.length - 1 && <div class="tl-line"></div>}
+        </div>
+
+        <div class="tl-content">
+          <div class="tl-tags">
+            {i === 0 && <span class="latest-tag">Latest</span>}
+            <span class:list={['type-badge', `badge--${c.type}`]}>{typeLabel[c.type]}</span>
+            <span class="tl-version-mobile">{c.version} · {c.date}</span>
+          </div>
+          <h3 class="tl-title">{c.title}</h3>
+          <p class="tl-body">{c.body}</p>
+        </div>
+
+      </div>
+    ))}
+
+    <div class="tl-end" id="tl-empty" style="display:none">
+      <span class="tl-empty-msg">No hay entradas para este filtro.</span>
+    </div>
+  </div>
+
+</div>
+</Layout>
+
+<script>
+  const btns = document.querySelectorAll<HTMLButtonElement>('.filter-btn')
+  const entries = document.querySelectorAll<HTMLElement>('.tl-entry')
+  const empty = document.getElementById('tl-empty')!
+
+  btns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      btns.forEach(b => b.classList.remove('is-active'))
+      btn.classList.add('is-active')
+      const f = btn.dataset.filter!
+      let visible = 0
+      entries.forEach(entry => {
+        const show = f === 'all' || entry.dataset.type === f
+        entry.style.display = show ? '' : 'none'
+        if (show) visible++
+      })
+      empty.style.display = visible === 0 ? '' : 'none'
+    })
+  })
+</script>
+
+<style>
+  /* ── Header ── */
+  .cl-header {
+    padding: 4rem 0 2.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
+  }
+
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    margin-bottom: 1.25rem;
+  }
+
+  .breadcrumb a {
+    color: var(--text-dim);
+    transition: color 0.15s;
+    text-decoration: none;
+  }
+
+  .breadcrumb a:hover { color: var(--text); }
+  .breadcrumb .sep { opacity: 0.4; }
+
+  .cl-header-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .cl-title {
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    margin: 0 0 0.375rem;
+  }
+
+  .cl-sub {
+    font-size: 0.9375rem;
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  .cl-count {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    padding-bottom: 0.125rem;
+  }
+
+  /* ── Filter bar ── */
+  .filter-bar {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 3.5rem;
+  }
+
+  .filter-btn {
+    padding: 0.75rem 1.125rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    font-family: inherit;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    letter-spacing: 0.01em;
+  }
+
+  .filter-btn:hover { color: var(--text-dim); }
+
+  .filter-btn.is-active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+  }
+
+  /* ── Timeline ── */
+  .timeline {
+    padding-bottom: 5rem;
+  }
+
+  .tl-entry {
+    display: grid;
+    grid-template-columns: 130px 28px 1fr;
+    column-gap: 1.5rem;
+  }
+
+  /* ── Left: version + date ── */
+  .tl-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    padding-top: 3px;
+    gap: 0.25rem;
+  }
+
+  .tl-version {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .tl-date {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    line-height: 1;
+  }
+
+  /* ── Connector ── */
+  .tl-connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 4px;
+  }
+
+  .tl-dot {
+    width: 9px;
+    height: 9px;
+    flex-shrink: 0;
+    background: var(--border-mid);
+    transition: background 0.15s;
+  }
+
+  .dot--new      { background: var(--accent); }
+  .dot--improved { background: var(--mint); }
+  .dot--fixed    { background: var(--lavender); }
+  .dot--breaking { background: var(--red); }
+
+  .dot--latest {
+    width: 11px;
+    height: 11px;
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .tl-line {
+    width: 1px;
+    flex: 1;
+    min-height: 2rem;
+    background: var(--border);
+    margin-top: 5px;
+  }
+
+  /* ── Content ── */
+  .tl-content {
+    padding-bottom: 3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .tl-tags {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+
+  .latest-tag {
+    font-size: 0.5625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.15rem 0.45rem;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+    border-radius: var(--radius-chip);
+    line-height: 1.4;
+  }
+
+  .type-badge {
+    font-size: 0.5625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.15rem 0.45rem;
+    border-radius: var(--radius-chip);
+    line-height: 1.4;
+  }
+
+  .badge--new {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  }
+
+  .badge--improved {
+    background: color-mix(in srgb, var(--mint) 12%, transparent);
+    color: var(--mint);
+    border: 1px solid color-mix(in srgb, var(--mint) 28%, transparent);
+  }
+
+  .badge--fixed {
+    background: color-mix(in srgb, var(--lavender) 12%, transparent);
+    color: var(--lavender);
+    border: 1px solid color-mix(in srgb, var(--lavender) 28%, transparent);
+  }
+
+  .badge--breaking {
+    background: color-mix(in srgb, var(--red) 12%, transparent);
+    color: var(--red);
+    border: 1px solid color-mix(in srgb, var(--red) 28%, transparent);
+  }
+
+  .tl-title {
+    font-size: 1.0625rem;
+    font-weight: 500;
+    color: var(--text);
+    margin: 0;
+    line-height: 1.3;
+  }
+
+  .tl-body {
+    font-size: 0.875rem;
+    color: var(--text-dim);
+    line-height: 1.65;
+    margin: 0;
+    max-width: 56ch;
+  }
+
+  /* ── Empty state ── */
+  .tl-end {
+    grid-column: 1 / -1;
+    padding: 2rem 0;
+  }
+
+  .tl-empty-msg {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+  }
+
+  /* ── Mobile ── */
+  @media (max-width: 640px) {
+    .tl-entry {
+      grid-template-columns: 0 24px 1fr;
+      column-gap: 1rem;
+    }
+
+    .tl-meta {
+      display: none;
+    }
+
+    .tl-version-mobile {
+      display: inline;
+    }
+
+    .tl-content {
+      padding-bottom: 2.5rem;
+    }
+
+    .tl-version-mobile {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+      display: none;
+    }
+
+    .cl-header-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+  }
+</style>

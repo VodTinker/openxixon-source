@@ -1,0 +1,179 @@
+---
+import Layout from '../layouts/Layout.astro'
+import PixelText from '../components/PixelText.astro'
+
+---
+
+<Layout title="Precios" description="Planes para acceder a los datos abiertos de Gijón.">
+  <section class="pricing-hero">
+    <div class="container">
+      <div class="hero-kicker animate-up">
+        <div class="hero-kicker-meta">
+          <div class="hero-kicker-badge">
+            <span class="status-dot"></span>
+            <span class="label mono">Planes y precios</span>
+          </div>
+          <span class="hero-kicker-sub">Simple & Transparente</span>
+        </div>
+      </div>
+
+      <h1 class="hero-h1-px animate-up delay-2">
+        <div class="px-glow-wrapper">
+          <PixelText text="DATOS ABIERTOS," scale={7} seed={42} />
+        </div>
+        <div class="px-glow-wrapper">
+          <PixelText text="PRECIOS HONESTOS" scale={7} seed={88} />
+        </div>
+      </h1>
+
+      <p class="hero-sub animate-up delay-2">
+        Todos los datos son gratuitos.<br/>
+        Próximamente: planes Pro con histórico extendido y API ilimitada.
+      </p>
+    </div>
+  </section>
+
+  <!-- Próximamente -->
+  <section class="pricing-section">
+    <div class="container">
+      <div class="coming-soon-card">
+
+        <h2 class="coming-soon-title">Próximamente</h2>
+        <p class="coming-soon-desc">
+          Estamos definiendo los planes y precios finales.<br/>
+          Mientras tanto, todo el acceso es gratuito con los límites actuales.
+        </p>
+        <div class="coming-soon-limits">
+          <div class="csl-row">
+            <span class="csl-label mono">Histórico</span>
+            <span class="csl-val mono">30 días</span>
+          </div>
+          <div class="csl-row">
+            <span class="csl-label mono">Req. API / día</span>
+            <span class="csl-val mono">100</span>
+          </div>
+          <div class="csl-row">
+            <span class="csl-label mono">Datasets</span>
+            <span class="csl-val mono">Todos</span>
+          </div>
+        </div>
+        <a href="/datos" class="btn btn-secondary" style="margin-top:1.5rem">Explorar datos →</a>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .pricing-hero {
+    padding: 4rem 0 2rem;
+    text-align: center;
+  }
+  .hero-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+  .hero-kicker-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+  .hero-kicker-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--border);
+    font-size: 0.625rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--mint);
+    animation: blink 1.8s ease-in-out infinite;
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .hero-kicker-sub {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+  .hero-h1-px {
+    font-size: clamp(1.5rem, 5vw, 3rem);
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    margin-bottom: 1rem;
+  }
+  .px-glow-wrapper {
+    display: block;
+  }
+  .hero-sub {
+    font-size: 0.9375rem;
+    color: var(--text-muted);
+    max-width: 480px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .pricing-section {
+    padding: 2rem 0 4rem;
+  }
+
+  .coming-soon-card {
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 3rem 2rem;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    text-align: center;
+  }
+  .coming-soon-icon {
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: center;
+  }
+  .coming-soon-title {
+    font-size: 1.5rem;
+    font-weight: 500;
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.02em;
+  }
+  .coming-soon-desc {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin-bottom: 2rem;
+  }
+  .coming-soon-limits {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: 280px;
+    margin: 0 auto;
+  }
+  .csl-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.8125rem;
+  }
+  .csl-label {
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .csl-val {
+    color: var(--text);
+    font-weight: 500;
+  }
+</style>

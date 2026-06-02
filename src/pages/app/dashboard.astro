@@ -1,0 +1,601 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro'
+import ExpandableDataCard from '../../components/ExpandableDataCard.astro'
+import AireChart from '../../components/charts/AireChart'
+import IncidenciasChart from '../../components/charts/IncidenciasChart'
+import MultasChart from '../../components/charts/MultasChart'
+import InversionesChart from '../../components/charts/InversionesChart'
+import { BarriosChart } from '../../components/charts/PoblacionChart'
+import { db, getSession } from '../../lib/supabase'
+import { TIER_LIMITS } from '../../lib/tier'
+import type { Plan } from '../../lib/tier'
+import { buildSpark, SPARK_W, SPARK_H } from '../../lib/spark'
+
+const { user } = await getSession(Astro.cookies, Astro.request)
+const { data: profile } = await db.from('profiles').select('*').eq('user_id', user!.id).single()
+const plan = (profile?.plan as Plan) ?? 'free'
+const limits = TIER_LIMITS[plan]
+
+const { data: mediciones } = await db
+  .from('calidad_aire')
+  .select('fecha, no2, o3, pm10, pm25')
+  .not('no2', 'is', null)
+  .order('fecha', { ascending: false })
+  .limit(30)
+
+// Datos extendidos para el chart expandido (incluye estacion y más histórico)
+const { data: medicionesChart } = await db
+  .from('calidad_aire')
+  .select('fecha, estacion, no2, o3, pm10, pm25')
+  .not('no2', 'is', null)
+  .order('fecha', { ascending: false })
+  .limit(500)
+
+const { data: estaciones } = await db.from('estaciones_aire').select('id, titulo')
+
+const { data: alertas } = await db
+  .from('alertas')
+  .select('*')
+  .eq('user_id', user!.id)
+  .eq('activa', true)
+
+// ───── Datasets adicionales (últimos 30 registros para sparklines) ─────
+const { data: incidenciasRaw } = await db
+  .from('incidencias_urbanas')
+  .select('fecha, tipo, estado')
+  .order('fecha', { ascending: false })
+  .limit(30)
+
+const { data: multasRaw } = await db
+  .from('multas_trafico')
+  .select('anio, importe, calificacion')
+  .order('anio', { ascending: false })
+  .order('id', { ascending: false })
+  .limit(200)
+
+const { data: inversionesRaw } = await db
+  .from('inversiones')
+  .select('fecha_adjudicacion, importe_adjudicacion, importe_presupuestado')
+  .not('fecha_adjudicacion', 'is', null)
+  .order('fecha_adjudicacion', { ascending: false })
+  .limit(30)
+
+// poblacion_barrios already fetched above in barriosRaw (with fecha)
+
+const { data: barriosRaw } = await db
+  .from('poblacion_barrios')
+  .select('datos, fecha')
+  .order('fecha', { ascending: false })
+  .limit(500)
+
+// Extract nombre + total from jsonb datos
+const barrios = (barriosRaw ?? []).map((r: any) => {
+  const d = r.datos as Record<string, unknown> | null
+  return {
+    nombre: String(d?.nombre ?? d?.barrio ?? d?.titulo ?? ''),
+    total: Number(d?.total ?? 0),
+  }
+}).filter(b => b.nombre && b.total > 0)
+  .sort((a, b) => b.total - a.total)
+  .slice(0, 20)
+const totalPob = barrios.reduce((s, b) => s + b.total, 0)
+
+const readings = mediciones ?? []
+
+// Datos para AireChart: agrupar por estación
+const allChartPts = [...(medicionesChart ?? [])].reverse()
+const stationIds = [...new Set(allChartPts.map((p: any) => String(p.estacion ?? '')).filter(Boolean))]
+const byStation: Record<string, any> = {}
+for (const sid of stationIds) {
+  const pts = allChartPts.filter((p: any) => String(p.estacion) === sid)
+  byStation[sid] = {
+    labels: pts.map((p: any) => new Date(p.fecha).toLocaleString('es-ES', {
+      day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+    })),
+    timestamps: pts.map((p: any) => p.fecha),
+    no2:  pts.map((p: any) => p.no2  ?? null),
+    o3:   pts.map((p: any) => p.o3   ?? null),
+    pm10: pts.map((p: any) => p.pm10 ?? null),
+    pm25: pts.map((p: any) => p.pm25 ?? null),
+  }
+}
+const stationNames: Record<string, string> = Object.fromEntries(
+  (estaciones ?? []).map((e: any) => [String(e.id), e.titulo ?? String(e.id)])
+)
+
+const metrics = [
+  { key: 'no2',  label: 'NO₂',   unit: 'µg/m³', tone: 'mint',     data: buildSpark(readings.map((m: any) => m.no2))  },
+  { key: 'o3',   label: 'O₃',    unit: 'µg/m³', tone: 'lavender', data: buildSpark(readings.map((m: any) => m.o3))   },
+  { key: 'pm10', label: 'PM10',  unit: 'µg/m³', tone: 'accent',   data: buildSpark(readings.map((m: any) => m.pm10)) },
+  { key: 'pm25', label: 'PM2.5', unit: 'µg/m³', tone: 'peach',    data: buildSpark(readings.map((m: any) => m.pm25)) },
+]
+
+// ───── Incidencias: sparklines de total/día por estado ─────
+const incRows = incidenciasRaw ?? []
+const incTotal = incRows.length
+const incResueltas = incRows.filter((r: any) =>
+  r.estado?.toLowerCase().includes('cerrad') || r.estado?.toLowerCase().includes('resuelt')
+).length
+const incAbiertas = incTotal - incResueltas
+// Agrupar por fecha para sparkline de conteo diario
+const incPorFecha: Record<string, number> = {}
+incRows.forEach((r: any) => {
+  const d = (r.fecha as string | null)?.split('T')[0] ?? ''
+  if (d) incPorFecha[d] = (incPorFecha[d] ?? 0) + 1
+})
+const incFechasSorted = Object.keys(incPorFecha).sort()
+const incCountSpark = buildSpark(incFechasSorted.map(d => incPorFecha[d]))
+
+// ───── Multas: sparkline de importe por registro ─────
+const multasRows = multasRaw ?? []
+const multasImportes = multasRows.map((r: any) => r.importe ?? 0).filter((v: number) => v > 0)
+const multasSpark = buildSpark(multasImportes.slice(0, 30).reverse())
+const multasTotal = multasRows.length
+const multasImporteTotal = multasRows.reduce((s: number, r: any) => s + (r.importe ?? 0), 0)
+const multasImporteMedio = multasTotal > 0 ? Math.round(multasImporteTotal / multasTotal) : 0
+const multasMuyGrave = multasRows.filter((r: any) => r.calificacion === 'Muy Grave').length
+
+// ───── Inversiones: sparkline de importe_adjudicacion por proyecto ─────
+const invRows = inversionesRaw ?? []
+const invImportes = invRows.map((r: any) => Number(r.importe_adjudicacion) || 0)
+const invSpark = buildSpark([...invImportes].reverse())
+const invTotal = invRows.length
+const invPresupuestado = invRows.reduce((s: number, r: any) => s + (Number(r.importe_presupuestado) || 0), 0)
+const invAdjudicado = invRows.reduce((s: number, r: any) => s + (Number(r.importe_adjudicacion) || 0), 0)
+
+// ───── Población: sparkline de total por año (desde barriosRaw) ─────
+const pobByFecha: Record<string, number> = {}
+for (const r of (barriosRaw ?? []) as any[]) {
+  const d = r.datos as Record<string, unknown> | null
+  const val = Number(d?.total ?? 0)
+  const f = (r.fecha as string | null)?.split('T')[0] ?? ''
+  if (f && val > 0) pobByFecha[f] = (pobByFecha[f] ?? 0) + val
+}
+const pobFechas = Object.keys(pobByFecha).sort().reverse()
+const pobSpark = buildSpark(pobFechas.map(f => pobByFecha[f]))
+const pobTotal = pobFechas.length > 0 ? pobByFecha[pobFechas[0]] : null
+
+// ───── LIVE timestamp ─────
+const latest = (readings.find((m: any) => m.no2 != null || m.o3 != null) ?? readings[0]) as { fecha?: string } | undefined
+let minsAgo: number | null = null
+if (latest?.fecha) {
+  minsAgo = Math.max(0, Math.round((Date.now() - new Date(latest.fecha).getTime()) / 60000))
+}
+function formatAgo(mins: number): string {
+  if (mins < 60) return `hace ${mins} min`
+  const h = Math.round(mins / 60)
+  if (h < 24) return `hace ${h} h`
+  return `hace ${Math.round(h / 24)} d`
+}
+
+// ───── Usage ─────
+const reqToday = profile?.requests_today ?? 0
+const reqPct = Math.min(100, (reqToday / limits.reqPerDay) * 100)
+const reqTone = reqPct > 85 ? 'hot' : reqPct > 60 ? 'warm' : 'ok'
+const SEGMENTS = 24
+const filledSegments = Math.round((reqPct / 100) * SEGMENTS)
+
+const alias = (user?.email ?? '').split('@')[0]
+---
+
+<AppLayout title="Dashboard">
+
+  <header class="dh">
+    <div>
+      <span class="dlive">
+        <b></b>
+        <span class="mono">LIVE</span>
+        <span class="mono">{minsAgo !== null ? `· ingesta ${formatAgo(minsAgo)}` : '· sin datos aún'}</span>
+      </span>
+      <h1>Hola, <span class="dname">{alias}</span></h1>
+      <p class="dsub mono">{user?.email}</p>
+    </div>
+    <span class:list={['dpill', plan === 'pro' ? 'dpill--pro' : '']}>{plan.toUpperCase()}</span>
+  </header>
+
+  <!-- KPI strip -->
+  <div class="dkpi">
+    <div class="dkpi-c dkpi-c--main">
+      <span class="dkpi-l mono">PETICIONES HOY</span>
+      <div class="dkpi-v">
+        <span class="dn mono">{reqToday.toLocaleString('es-ES')}</span>
+        <span class="du mono">/ {limits.reqPerDay.toLocaleString('es-ES')}</span>
+      </div>
+      <div class="dbar" role="progressbar" aria-valuenow={Math.round(reqPct)} aria-valuemin={0} aria-valuemax={100}>
+        {Array.from({ length: SEGMENTS }).map((_, i) => (
+          <span class:list={['db', i < filledSegments && `db--${reqTone}`]}></span>
+        ))}
+      </div>
+      <span class="dfoot mono">{(limits.reqPerDay - reqToday).toLocaleString('es-ES')} restantes · reset 00:00 UTC</span>
+    </div>
+    <div class="dkpi-c">
+      <span class="dkpi-l mono">ALERTAS ACTIVAS</span>
+      <div class="dkpi-v"><span class="dn mono">{alertas?.length ?? 0}</span></div>
+      <a href="/app/alertas" class="dfoot dfoot--link mono">Gestionar →</a>
+    </div>
+    <div class="dkpi-c">
+      <span class="dkpi-l mono">HISTÓRICO</span>
+      <div class="dkpi-v">
+        <span class="dn mono">{limits.days}</span>
+        <span class="du">días</span>
+      </div>
+      {plan === 'free'
+        ? <span class="dfoot mono" style="opacity:0.5">Próximamente</span>
+        : <span class="dfoot mono">acceso completo Pro</span>
+      }
+    </div>
+    <div class="dkpi-c">
+      <span class="dkpi-l mono">SUSCRIPCIÓN</span>
+      <div class="dkpi-v"><span class="dn mono">{plan === 'pro' ? 'Pro' : 'Gratis'}</span></div>
+      <span class="dfoot mono" style="opacity:0.5">Próximamente</span>
+    </div>
+  </div>
+
+  <!-- Calidad del aire -->
+  <ExpandableDataCard
+    id="aire"
+    label={`CALIDAD DEL AIRE · ${readings.length} lecturas`}
+    fullViewHref="/aire"
+    fullViewLabel="Ver estaciones →"
+  >
+    <div slot="collapsed" class="dair">
+      {metrics.map(m => (
+        <div class:list={['dmc', `dmc--${m.tone}`]}>
+          <div class="dmc-h">
+            <span class="dmc-l mono">{m.label}</span>
+            <span class:list={['dmc-d mono', m.data.delta !== null && m.data.delta < 0 ? 'dmc-d--dn' : 'dmc-d--up']}>
+              {m.data.delta !== null && Math.abs(m.data.delta) >= 0.1
+                ? `${m.data.delta < 0 ? '▼' : '▲'} ${Math.abs(m.data.delta).toFixed(1)}`
+                : '—'}
+            </span>
+          </div>
+          <div class="dmc-v">
+            <span class="dmcn mono">{m.data.last !== null ? m.data.last.toFixed(1) : '—'}</span>
+            <span class="dmcu mono">{m.unit}</span>
+          </div>
+          {m.data.line ? (
+            <svg class="dsp" viewBox={`0 0 ${SPARK_W} ${SPARK_H}`} preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient id={`ga${m.key}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stop-color="currentColor" stop-opacity=".32"/>
+                  <stop offset="100%" stop-color="currentColor" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <line class="dgrid" x1="0" y1={SPARK_H*.33} x2={SPARK_W} y2={SPARK_H*.33}/>
+              <line class="dgrid" x1="0" y1={SPARK_H*.66} x2={SPARK_W} y2={SPARK_H*.66}/>
+              <polygon points={m.data.area} fill={`url(#ga${m.key})`}/>
+              <polyline class="dsp-l" points={m.data.line}/>
+              <circle class="dhalo" cx={m.data.points.at(-1)!.x} cy={m.data.points.at(-1)!.y} r="5"/>
+              <circle cx={m.data.points.at(-1)!.x} cy={m.data.points.at(-1)!.y} r="2.5" fill="currentColor" stroke="var(--surface)" stroke-width="1"/>
+            </svg>
+          ) : <div class="dsp-e mono">sin datos</div>}
+          <div class="dmc-ft mono">
+            <span>min <b>{m.data.min.toFixed(1)}</b></span>
+            <span>·</span>
+            <span>max <b>{m.data.max.toFixed(1)}</b></span>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <AireChart
+      slot="expanded"
+      byStation={byStation}
+      stationIds={stationIds}
+      stationNames={stationNames}
+      client:only="react"
+    />
+  </ExpandableDataCard>
+
+  <!-- Incidencias -->
+  <ExpandableDataCard
+    id="incidencias"
+    label={`INCIDENCIAS · ${incTotal} registros`}
+    fullViewHref="/incidencias"
+  >
+    <div slot="collapsed" class="dds dds--sky">
+      <div class="dds-kpis">
+        <div class="dmcell">
+          <span class="dmcell-l mono">TOTAL</span>
+          <span class="dmcell-v mono">{incTotal}</span>
+        </div>
+        <div class="dmcell">
+          <span class="dmcell-l mono">ABIERTAS</span>
+          <span class="dmcell-v mono" style="color:var(--peach)">{incAbiertas}</span>
+        </div>
+        <div class="dmcell">
+          <span class="dmcell-l mono">RESUELTAS</span>
+          <span class="dmcell-v mono" style="color:var(--mint)">{incResueltas}</span>
+        </div>
+      </div>
+      {incCountSpark.line ? (
+        <svg class="dsp dsp--full dsp--sky" viewBox={`0 0 ${SPARK_W} ${SPARK_H}`} preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="gInc" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="currentColor" stop-opacity=".3"/>
+              <stop offset="100%" stop-color="currentColor" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <polygon points={incCountSpark.area} fill="url(#gInc)"/>
+          <polyline class="dsp-l" points={incCountSpark.line}/>
+          {incCountSpark.points.at(-1) && (
+            <circle cx={incCountSpark.points.at(-1)!.x} cy={incCountSpark.points.at(-1)!.y} r="3" fill="currentColor" vector-effect="non-scaling-stroke"/>
+          )}
+        </svg>
+      ) : <div class="dsp-e mono">sin datos</div>}
+    </div>
+
+    <IncidenciasChart
+      slot="expanded"
+      data={(() => {
+        const tipos: Record<string, number> = {}
+        for (const r of (incidenciasRaw ?? []) as any[]) {
+          const t = r.tipo ?? 'otros'
+          tipos[t] = (tipos[t] ?? 0) + 1
+        }
+        return Object.entries(tipos)
+          .sort((a, b) => b[1] - a[1])
+          .map(([label, value]) => ({ label, value }))
+      })()}
+      client:only="react"
+    />
+  </ExpandableDataCard>
+
+  <!-- Multas -->
+  <ExpandableDataCard
+    id="multas"
+    label={`MULTAS DE TRÁFICO · ${multasTotal} registros`}
+    fullViewHref="/multas"
+  >
+    <div slot="collapsed" class="dds dds--peach">
+      <div class="dds-kpis">
+        <div class="dmcell">
+          <span class="dmcell-l mono">TOTAL</span>
+          <span class="dmcell-v mono">{multasTotal}</span>
+        </div>
+        <div class="dmcell">
+          <span class="dmcell-l mono">IMPORTE MEDIO</span>
+          <span class="dmcell-v mono">{multasImporteMedio.toLocaleString('es-ES')} €</span>
+        </div>
+        <div class="dmcell">
+          <span class="dmcell-l mono">MUY GRAVES</span>
+          <span class="dmcell-v mono" style="color:var(--red)">{multasMuyGrave}</span>
+        </div>
+      </div>
+      {multasSpark.line ? (
+        <svg class="dsp dsp--full dsp--peach" viewBox={`0 0 ${SPARK_W} ${SPARK_H}`} preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="gMul" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="currentColor" stop-opacity=".3"/>
+              <stop offset="100%" stop-color="currentColor" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <polygon points={multasSpark.area} fill="url(#gMul)"/>
+          <polyline class="dsp-l" points={multasSpark.line}/>
+          {multasSpark.points.at(-1) && (
+            <circle cx={multasSpark.points.at(-1)!.x} cy={multasSpark.points.at(-1)!.y} r="3" fill="currentColor" vector-effect="non-scaling-stroke"/>
+          )}
+        </svg>
+      ) : <div class="dsp-e mono">sin datos</div>}
+    </div>
+
+    <MultasChart
+      slot="expanded"
+      data={(() => {
+        const buckets: Record<string, number> = { Leve: 0, Grave: 0, 'Muy Grave': 0 }
+        for (const r of (multasRaw ?? []) as any[]) {
+          const k = r.calificacion ?? 'Leve'
+          buckets[k] = (buckets[k] ?? 0) + (Number(r.importe) || 0)
+        }
+        return Object.entries(buckets).map(([label, value]) => ({ label, value: Math.round(value) }))
+      })()}
+      client:only="react"
+    />
+  </ExpandableDataCard>
+
+  <!-- Inversiones -->
+  <ExpandableDataCard
+    id="inversiones"
+    label={`INVERSIONES · ${invTotal} contratos`}
+    fullViewHref="/inversiones"
+  >
+    <div slot="collapsed" class="dds dds--lavender">
+      <div class="dds-kpis">
+        <div class="dmcell">
+          <span class="dmcell-l mono">PRESUPUESTADO</span>
+          <span class="dmcell-v mono">{(invPresupuestado / 1_000_000).toFixed(2)}M €</span>
+        </div>
+        <div class="dmcell">
+          <span class="dmcell-l mono">ADJUDICADO</span>
+          <span class="dmcell-v mono">{(invAdjudicado / 1_000_000).toFixed(2)}M €</span>
+        </div>
+        <div class="dmcell">
+          <span class="dmcell-l mono">CONTRATOS</span>
+          <span class="dmcell-v mono">{invTotal}</span>
+        </div>
+      </div>
+      {invSpark.line ? (
+        <svg class="dsp dsp--full dsp--lavender" viewBox={`0 0 ${SPARK_W} ${SPARK_H}`} preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="gInv" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="currentColor" stop-opacity=".3"/>
+              <stop offset="100%" stop-color="currentColor" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <polygon points={invSpark.area} fill="url(#gInv)"/>
+          <polyline class="dsp-l" points={invSpark.line}/>
+          {invSpark.points.at(-1) && (
+            <circle cx={invSpark.points.at(-1)!.x} cy={invSpark.points.at(-1)!.y} r="3" fill="currentColor" vector-effect="non-scaling-stroke"/>
+          )}
+        </svg>
+      ) : <div class="dsp-e mono">sin datos</div>}
+    </div>
+
+    <InversionesChart
+      slot="expanded"
+      data={(() => {
+        const byYear: Record<string, { presupuestado: number; adjudicado: number }> = {}
+        for (const r of (inversionesRaw ?? []) as any[]) {
+          const anio = (r.fecha_adjudicacion as string | null)?.slice(0, 4) ?? 's/a'
+          if (!byYear[anio]) byYear[anio] = { presupuestado: 0, adjudicado: 0 }
+          byYear[anio].presupuestado += Number(r.importe_presupuestado) || 0
+          byYear[anio].adjudicado    += Number(r.importe_adjudicacion)   || 0
+        }
+        return Object.entries(byYear)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([anio, v]) => ({ anio, presupuestado: Math.round(v.presupuestado), adjudicado: Math.round(v.adjudicado) }))
+      })()}
+      client:only="react"
+    />
+  </ExpandableDataCard>
+
+  <!-- Población -->
+  <ExpandableDataCard
+    id="poblacion"
+    label={`POBLACIÓN · ${pobTotal !== null ? Math.round(pobTotal).toLocaleString('es-ES') : '—'} habitantes`}
+    fullViewHref="/poblacion"
+    fullViewLabel="Ver pirámide y barrios →"
+  >
+    <div slot="collapsed" class="dds dds--mint">
+      <div class="dds-kpis">
+        <div class="dmcell">
+          <span class="dmcell-l mono">TOTAL HABITANTES</span>
+          <span class="dmcell-v mono">{pobTotal !== null ? Math.round(pobTotal).toLocaleString('es-ES') : '—'}</span>
+        </div>
+        <div class="dmcell">
+          <span class="dmcell-l mono">BARRIOS</span>
+          <span class="dmcell-v mono">{barrios.length}</span>
+        </div>
+        <div class="dmcell">
+          <span class="dmcell-l mono">ACTUALIZACIÓN</span>
+          <span class="dmcell-v mono" style="font-size:1rem">Anual</span>
+        </div>
+      </div>
+      {pobSpark.line ? (
+        <svg class="dsp dsp--full dsp--mint" viewBox={`0 0 ${SPARK_W} ${SPARK_H}`} preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="gPob" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="currentColor" stop-opacity=".3"/>
+              <stop offset="100%" stop-color="currentColor" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <polygon points={pobSpark.area} fill="url(#gPob)"/>
+          <polyline class="dsp-l" points={pobSpark.line}/>
+          {pobSpark.points.at(-1) && (
+            <circle cx={pobSpark.points.at(-1)!.x} cy={pobSpark.points.at(-1)!.y} r="3" fill="currentColor" vector-effect="non-scaling-stroke"/>
+          )}
+        </svg>
+      ) : <div class="dsp-e mono">sin datos</div>}
+    </div>
+
+    <BarriosChart
+      slot="expanded"
+      barrios={barrios}
+      total={totalPob}
+      client:only="react"
+    />
+  </ExpandableDataCard>
+
+</AppLayout>
+
+<script>
+  import '../../scripts/dashboard-cards.ts'
+</script>
+
+<style>
+  /* Header */
+  .dh { display:flex; justify-content:space-between; align-items:flex-start; gap:1.5rem; margin-bottom:2rem; padding-bottom:1.5rem; border-bottom:1px solid var(--border); }
+  .dh h1 { font-size:1.75rem; font-weight:400; margin:.4rem 0 .15rem; letter-spacing:-.02em; }
+  .dname { background:var(--accent-gradient); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .dlive { display:inline-flex; align-items:center; gap:.4rem; padding:.25rem .5rem; border:1px solid color-mix(in srgb,var(--mint) 30%,var(--border)); background:color-mix(in srgb,var(--mint) 7%,transparent); font-size:.6rem; letter-spacing:.08em; color:var(--text-muted); }
+  .dlive b { display:inline-block; width:6px; height:6px; background:var(--mint); border-radius:50%; animation:lp 1.8s ease-in-out infinite; }
+  @keyframes lp { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:.5} }
+  .dsub { font-size:.6875rem; color:var(--text-muted); }
+  .dpill { display:inline-flex; align-items:center; padding:.3rem .65rem; font-family:var(--font-mono,monospace); font-size:.75rem; font-weight:500; letter-spacing:.1em; border:1px solid var(--border-strong); color:var(--text-dim); flex-shrink:0; }
+  .dpill--pro { background:var(--accent-soft); border-color:var(--accent); color:var(--lavender); }
+
+  /* KPI strip */
+  .dkpi { display:grid; grid-template-columns:1.5fr 1fr 1fr 1fr; gap:0; border:1px solid var(--border); background:var(--surface); margin-bottom:2rem; }
+  .dkpi-c { padding:1.1rem 1.25rem; border-right:1px solid var(--border); display:flex; flex-direction:column; gap:.4rem; position:relative; }
+  .dkpi-c:last-child { border-right:none; }
+  .dkpi-c--main::before { content:''; position:absolute; left:0; top:0; width:2px; height:100%; background:var(--accent-gradient); }
+  .dkpi-l { font-size:.55rem; color:var(--text-muted); letter-spacing:.12em; }
+  .dkpi-v { display:flex; align-items:baseline; gap:.35rem; }
+  .dn { font-size:1.75rem; font-weight:500; color:var(--text); line-height:1; letter-spacing:-.015em; }
+  .du { font-size:.8rem; color:var(--text-muted); }
+  .dbar { display:flex; gap:2px; height:12px; margin:.1rem 0; }
+  .db { flex:1; border:1px solid var(--border-mid); }
+  .db--ok   { background:var(--mint);  border-color:var(--mint); }
+  .db--warm { background:var(--peach); border-color:var(--peach); }
+  .db--hot  { background:var(--red);   border-color:var(--red); }
+  .dfoot { font-size:.6rem; color:var(--text-muted); letter-spacing:.02em; margin-top:auto; }
+  .dfoot--link { color:var(--accent); text-decoration:none; }
+  .dfoot--link:hover { color:var(--lavender); }
+
+
+  /* Air quality cards */
+  .dair { display:grid; grid-template-columns:repeat(4,1fr); gap:0; border:1px solid var(--border); background:var(--surface); }
+  .dmc { padding:1rem 1.1rem .9rem; border-right:1px solid var(--border); display:flex; flex-direction:column; gap:.45rem; position:relative; overflow:hidden; }
+  .dmc:last-child { border-right:none; }
+  .dmc::after { content:''; position:absolute; inset:0 0 auto 0; height:2px; background:currentColor; opacity:.9; }
+  .dmc--mint     { color:var(--mint); }
+  .dmc--lavender { color:var(--lavender); }
+  .dmc--accent   { color:var(--accent); }
+  .dmc--peach    { color:var(--peach); }
+  .dmc-h { display:flex; justify-content:space-between; align-items:center; margin-top:.1rem; }
+  .dmc-l { font-size:.7rem; color:var(--text-dim); letter-spacing:.08em; text-transform:uppercase; font-weight:500; }
+  .dmc-d { font-size:.65rem; font-weight:500; }
+  .dmc-d--dn { color:var(--mint); }
+  .dmc-d--up { color:var(--red); }
+  .dmc-v { display:flex; align-items:baseline; gap:.3rem; }
+  .dmcn { font-size:1.5rem; font-weight:500; color:var(--text); line-height:1; letter-spacing:-.01em; }
+  .dmcu { font-size:.65rem; color:var(--text-muted); }
+  .dmc-ft { display:flex; gap:.5rem; font-size:.6rem; color:var(--text-muted); margin-top:.1rem; }
+  .dmc-ft b { color:var(--text-dim); font-weight:500; }
+  .dgrid { stroke:var(--border); stroke-width:.5; stroke-dasharray:2 3; opacity:.5; vector-effect:non-scaling-stroke; }
+  .dhalo { fill:currentColor; opacity:.2; animation:ha 2s ease-out infinite; transform-box:fill-box; transform-origin:center; }
+  @keyframes ha { 0%{transform:scale(.6);opacity:.4} 80%,100%{transform:scale(2.2);opacity:0} }
+
+  /* Collapsed dataset cards */
+  .dds { display:flex; flex-direction:column; gap:0.75rem; border:1px solid var(--border); background:var(--surface); padding:1rem 1.1rem 0.9rem; position:relative; overflow:hidden; }
+  .dds::before { content:''; position:absolute; inset:0 0 auto 0; height:2px; background:var(--dds-color); }
+  .dds--mint     { --dds-color: var(--mint); }
+  .dds--sky      { --dds-color: var(--sky, #38bdf8); }
+  .dds--lavender { --dds-color: var(--lavender); }
+  .dds--peach    { --dds-color: var(--peach); }
+  .dds-kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:0.75rem; }
+  .dmcell  { display:flex; flex-direction:column; gap:0.2rem; }
+  .dmcell-l { font-size:0.625rem; color:var(--text-muted); letter-spacing:0.04em; text-transform:uppercase; }
+  .dmcell-v { font-size:1.5rem; color:var(--text); }
+  .dsp.dsp--full { height:44px; }
+  .dsp--mint     { color:var(--mint); }
+  .dsp--sky      { color:var(--sky, #38bdf8); }
+  .dsp--lavender { color:var(--lavender); }
+  .dsp--peach    { color:var(--peach); }
+
+  /* Sparklines */
+  .dsp { width:100%; height:52px; display:block; margin-top:.1rem; }
+  .dsp-l { fill:none; stroke:currentColor; stroke-width:1.5; stroke-linejoin:round; stroke-linecap:round; vector-effect:non-scaling-stroke; }
+  .dsp-e { font-size:.6rem; color:var(--text-muted); height:52px; display:flex; align-items:center; opacity:.5; }
+
+  /* Responsive */
+  @media (max-width:900px) {
+    .dkpi  { grid-template-columns:1fr 1fr; }
+    .dkpi-c:nth-child(2) { border-right:none; }
+    .dkpi-c:nth-child(1),.dkpi-c:nth-child(2) { border-bottom:1px solid var(--border); }
+    .dair  { grid-template-columns:repeat(2,1fr); }
+    .dmc:nth-child(2) { border-right:none; }
+    .dmc:nth-child(1),.dmc:nth-child(2) { border-bottom:1px solid var(--border); }
+    .dds-kpis { grid-template-columns:repeat(2,1fr); }
+  }
+  @media (max-width:600px) {
+    .dh    { flex-direction:column; }
+    .dkpi  { grid-template-columns:1fr; }
+    .dkpi-c { border-right:none !important; border-bottom:1px solid var(--border); }
+    .dkpi-c:last-child { border-bottom:none; }
+    .dair  { grid-template-columns:1fr; }
+    .dmc   { border-right:none !important; border-bottom:1px solid var(--border); }
+    .dmc:last-child { border-bottom:none; }
+    .dds-kpis { grid-template-columns:1fr; }
+  }
+</style>

@@ -1,0 +1,242 @@
+---
+import Nav from '../components/Nav.astro'
+import Footer from '../components/Footer.astro'
+import PixelLoader from '../components/PixelLoader.astro'
+import LazyReveal from '../components/LazyReveal.astro'
+import '../styles/global.css'
+import { ClientRouter } from 'astro:transitions'
+
+interface Props { title: string; description?: string }
+const { title, description = 'Datos abiertos del Ayuntamiento de Gijón.' } = Astro.props
+---
+
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>{title} — OpenXixón</title>
+  <meta name="description" content={description} />
+  <meta name="theme-color" content="#0D0D0D" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" />
+  <ClientRouter />
+
+  <script is:inline>
+    // Pre-paint: gate para lazy-reveal (evita FOUC) + restauración de tema
+    // + detección de sesión para renderizar el Nav estático correctamente.
+    document.documentElement.dataset.lazyReady = '';
+    var applyTheme = function() {
+      try {
+        var stored = localStorage.getItem('ox-theme')
+        var theme = stored || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+        document.documentElement.setAttribute('data-theme', theme)
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark')
+      }
+    };
+    // Sniff de cookie de Supabase: el SDK guarda 'sb-<ref>-auth-token' (a veces
+    // troceada en .0/.1). Heurística suficiente para decidir qué CTAs pintar.
+    // Si la sesión está expirada, el peor caso es ver "Dashboard" y que el
+    // middleware redirija a /login al hacer click. Sin flash, sin SSR.
+    var applyNavAuth = function() {
+      var authed = /\bsb-[^=]+-auth-token(\.\d+)?=/.test(document.cookie || '')
+      document.documentElement.dataset.navAuth = authed ? 'user' : 'guest'
+    };
+    applyTheme();
+    applyNavAuth();
+    document.addEventListener('astro:after-swap', function() {
+      applyTheme();
+      applyNavAuth();
+    });
+  </script>
+</head>
+<body>
+  <PixelLoader />
+  <!-- Luces ambientales sutiles (sólo visibles en dark) -->
+  <div class="ambient ambient-top" aria-hidden="true"></div>
+  <div class="ambient ambient-bottom" aria-hidden="true"></div>
+
+  <!-- Promo bar estilo Render -->
+  <a href="/docs" class="promo-bar" aria-label="Conoce la API abierta">
+    <span>Datos abiertos del Ayuntamiento de Gijón · API REST gratuita</span>
+    <span style="opacity:.9">Empezar →</span>
+  </a>
+
+  <div class="app-layout render-frame">
+    <Nav />
+    <main><slot /></main>
+    <Footer />
+  </div>
+  <LazyReveal />
+
+  <!-- Cookie Consent Banner — AEPD & RGPD 100% Compliant -->
+  <div id="cookie-banner" class="cookie-banner">
+    <div class="cb-inner">
+      <div class="cb-text">
+        <p><strong>Control de Cookies:</strong> Usamos cookies técnicas esenciales para el funcionamiento del portal y, opcionalmente, analíticas anónimas para mejorar el servicio. Consulta nuestra <a href="/legal/cookies">Política de Cookies</a>.</p>
+      </div>
+      <div class="cb-actions">
+        <button id="cb-reject" class="cb-btn cb-btn-reject" type="button">Rechazar</button>
+        <button id="cb-accept" class="cb-btn cb-btn-accept" type="button">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function initCookieBanner() {
+      const banner = document.getElementById('cookie-banner')
+      const acceptBtn = document.getElementById('cb-accept')
+      const rejectBtn = document.getElementById('cb-reject')
+      if (!banner || !acceptBtn || !rejectBtn) return
+
+      const consent = localStorage.getItem('ox_cookie_consent')
+      if (!consent) {
+        banner.classList.add('open')
+      }
+
+      acceptBtn.addEventListener('click', () => {
+        localStorage.setItem('ox_cookie_consent', 'accepted')
+        banner.classList.remove('open')
+      })
+
+      rejectBtn.addEventListener('click', () => {
+        localStorage.setItem('ox_cookie_consent', 'rejected')
+        banner.classList.remove('open')
+      })
+    }
+
+    document.addEventListener('astro:page-load', initCookieBanner)
+  </script>
+</body>
+</html>
+
+<style is:global>
+  .app-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    position: relative;
+    z-index: 1;
+  }
+
+  main { flex: 1; }
+
+  /* Luces ambientales — muy sutiles, adaptadas al tema */
+  .ambient {
+    position: fixed;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .ambient-top {
+    top: -40%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    height: 60%;
+    background: radial-gradient(ellipse at 50% 0%, var(--accent-soft) 0%, transparent 70%);
+  }
+  .ambient-bottom {
+    bottom: -30%;
+    right: -10%;
+    width: 50%;
+    height: 50%;
+    background: radial-gradient(ellipse at 100% 100%, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 70%);
+  }
+
+  /* Premium Cookie Consent Banner styles */
+  .cookie-banner {
+    display: none;
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10000;
+    width: 90%;
+    max-width: 480px;
+    background: color-mix(in srgb, var(--bg-1) 85%, transparent);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+    padding: 1.25rem;
+    box-sizing: border-box;
+    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .cookie-banner.open {
+    display: block;
+  }
+  .cb-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .cb-text p {
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--text-dim);
+    margin: 0;
+  }
+  .cb-text strong {
+    color: var(--text);
+  }
+  .cb-text a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .cb-text a:hover {
+    opacity: 0.85;
+  }
+  .cb-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+  .cb-btn {
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+    box-sizing: border-box;
+  }
+  .cb-btn-reject {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .cb-btn-reject:hover {
+    background: var(--border);
+    border-color: var(--border-strong);
+  }
+  .cb-btn-accept {
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    color: #000;
+  }
+  .cb-btn-accept:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+  .cb-btn-accept:active {
+    transform: translateY(0);
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translate(-50%, 1rem);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+  }
+</style>

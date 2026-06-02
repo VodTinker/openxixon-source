@@ -1,0 +1,87 @@
+---
+// Card del dashboard con dos estados: collapsed (KPI + sparkline) y
+// expanded (chart React grande). Solo una expandida a la vez en la página.
+// Persistencia ligera en sessionStorage. Charts usan Recharts (no Chart.js),
+// así que display:none/block sobre el slot expandido es seguro.
+interface Props {
+  id: string
+  label: string
+  fullViewHref: string
+  fullViewLabel?: string
+}
+
+const { id, label, fullViewHref, fullViewLabel = 'Ver vista completa →' } = Astro.props
+---
+
+<section class="ecard" data-card data-card-id={id} aria-expanded="false">
+  <header class="ecard-h">
+    <span class="ecard-l mono">{label}</span>
+    <div class="ecard-actions">
+      <a href={fullViewHref} class="ecard-link mono">{fullViewLabel}</a>
+      <button class="ecard-toggle mono" type="button" aria-label="Expandir">
+        <span class="ecard-toggle-txt">EXPANDIR</span>
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+          <path d="M1 3L5 7L9 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="ecard-collapsed">
+    <slot name="collapsed" />
+  </div>
+
+  <div class="ecard-expanded" hidden>
+    <slot name="expanded" />
+  </div>
+</section>
+
+<style>
+  .ecard {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    margin-bottom: 1rem;
+  }
+  .ecard-h {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .65rem 1rem;
+    border-bottom: 1px solid var(--border);
+    gap: 1rem;
+  }
+  .ecard-l {
+    font-size: .55rem;
+    color: var(--text-muted);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .ecard-actions { display: flex; align-items: center; gap: 1rem; }
+  .ecard-link {
+    font-size: .7rem;
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .ecard-link:hover { color: var(--lavender); }
+  .ecard-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: .55rem;
+    letter-spacing: .12em;
+    padding: .25rem .55rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .ecard-toggle:hover { color: var(--text); border-color: var(--text-dim); }
+  .ecard[aria-expanded="true"] .ecard-toggle svg { transform: rotate(180deg); }
+  .ecard[aria-expanded="true"] .ecard-toggle-txt { font-size: 0; }
+  .ecard[aria-expanded="true"] .ecard-toggle-txt::before { content: 'CONTRAER'; font-size: .55rem; }
+
+  .ecard-collapsed { padding: 0; }
+  .ecard-expanded { padding: 1rem; border-top: 1px solid var(--border); min-height: 320px; }
+</style>

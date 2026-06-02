@@ -1,0 +1,507 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro'
+import { db, getSession } from '../../lib/supabase'
+
+const { user } = await getSession(Astro.cookies, Astro.request)
+const { data: profile } = await db.from('profiles').select('*').eq('user_id', user!.id).single()
+const isPro = profile?.plan === 'pro'
+const reqToday = profile?.requests_today ?? 0
+
+const success = Astro.url.searchParams.get('success') === '1'
+
+const freeFeatures = [
+  { text: '30 días de histórico',     included: true },
+  { text: '100 peticiones/día',        included: true },
+  { text: 'Todos los datasets',        included: true },
+  { text: 'Alertas por email',         included: false },
+  { text: 'Exports CSV/JSON',          included: false },
+  { text: 'Pay-as-you-go',             included: false },
+]
+const proFeatures = [
+  { text: 'Histórico completo (1 año+)', included: true },
+  { text: '10.000 peticiones/día',        included: true },
+  { text: 'Todos los datasets',           included: true },
+  { text: 'Alertas por email',            included: true },
+  { text: 'Exports CSV/JSON',             included: true },
+  { text: 'Pay-as-you-go (próximamente)', included: true, muted: true },
+]
+---
+
+<AppLayout title="Plan">
+  <div class="bl-accent-line" aria-hidden="true"></div>
+
+  <header class="bl-top">
+    <div>
+      <span class="label">Suscripción · Facturación</span>
+      <h1>Tu plan</h1>
+      <p class="bl-sub">Gestiona tu suscripción, consumo y método de pago.</p>
+    </div>
+    <div class="bl-summary">
+      <div class="bl-summary-cell">
+        <span class="bl-cc-label mono">PLAN ACTUAL</span>
+        <span class:list={['plan-pill', isPro ? 'plan-pill--pro' : 'plan-pill--free']}>
+          {isPro ? 'PRO' : 'FREE'}
+        </span>
+      </div>
+      <div class="bl-summary-cell">
+        <span class="bl-cc-label mono">FACTURACIÓN</span>
+        <span class="bl-cc-value mono">Próximamente</span>
+      </div>
+    </div>
+  </header>
+
+  {success && (
+    <div class="success-banner">
+      <span class="success-dot"></span>
+      <div>
+        <strong>¡Plan Pro activado!</strong>
+        <span>Ya tienes acceso al histórico completo y al resto de ventajas Pro.</span>
+      </div>
+    </div>
+  )}
+
+  <!-- ─── Comparativa de planes ─── -->
+  <section class="panel">
+    <div class="panel-head">
+      <span class="label">Elige tu plan</span>
+      <span class="panel-meta mono">factura mensual · cancela cuando quieras</span>
+    </div>
+
+    <div class="plans-grid">
+      <!-- FREE -->
+      <div class:list={['plan-card', !isPro && 'plan-card--current']}>
+        {!isPro && <span class="plan-ribbon">Plan actual</span>}
+        <div class="plan-h">
+          <span class="plan-name mono">FREE</span>
+          <span class="plan-tag">Para empezar</span>
+        </div>
+        <div class="plan-price">
+          <span class="plan-price-value mono">€0</span>
+          <span class="plan-price-unit">/mes</span>
+        </div>
+        <ul class="plan-features">
+          {freeFeatures.map(f => (
+            <li class:list={['pf-item', !f.included && 'pf-item--off']}>
+              <span class="pf-icon">{f.included ? '✓' : '×'}</span>
+              <span>{f.text}</span>
+            </li>
+          ))}
+        </ul>
+        {!isPro && (
+          <div class="plan-footer">
+            <span class="plan-current-label mono">TU PLAN</span>
+          </div>
+        )}
+      </div>
+
+      <!-- PRO -->
+      <div class:list={['plan-card', 'plan-card--highlight', isPro && 'plan-card--current']}>
+        <span class="plan-accent-line" aria-hidden="true"></span>
+        {isPro && <span class="plan-ribbon plan-ribbon--pro">Plan actual</span>}
+        <div class="plan-h">
+          <span class="plan-name plan-name--pro mono">PRO</span>
+          <span class="plan-tag">Para producción</span>
+        </div>
+        <div class="plan-price">
+          <span class="plan-price-value mono">Próximamente</span>
+        </div>
+        <ul class="plan-features">
+          {proFeatures.map(f => (
+            <li class:list={['pf-item', f.muted && 'pf-item--muted']}>
+              <span class="pf-icon">✓</span>
+              <span>{f.text}</span>
+            </li>
+          ))}
+        </ul>
+        <div class="plan-footer">
+          {isPro ? (
+            <span class="plan-current-label mono plan-current-label--pro">TU PLAN</span>
+          ) : (
+            <button type="button" class="btn btn-accent plan-cta" disabled>
+              Mejorar a Pro · próximamente
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {isPro && (
+    <!-- ─── Consumo ─── -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="label">Consumo actual</span>
+        <span class="panel-meta mono">ciclo en curso</span>
+      </div>
+      <div class="bill-stats">
+        <div class="bs-cell">
+          <span class="bs-label mono">PETICIONES HOY</span>
+          <span class="bs-value mono">{reqToday.toLocaleString('es-ES')}</span>
+          <span class="bs-foot mono">incluido en plan</span>
+        </div>
+        <div class="bs-cell">
+          <span class="bs-label mono">EXTRA ESTE MES</span>
+          <span class="bs-value mono">€0.00</span>
+          <span class="bs-foot mono">pay-as-you-go</span>
+        </div>
+        <div class="bs-cell">
+          <span class="bs-label mono">FACTURACIÓN</span>
+          <span class="bs-value mono">Próximamente</span>
+          <span class="bs-foot mono">planes en definición</span>
+        </div>
+      </div>
+    </section>
+  )}
+
+  <!-- ─── FAQs / notas ─── -->
+  <section class="panel">
+    <div class="panel-head">
+      <span class="label">Preguntas frecuentes</span>
+    </div>
+    <div class="faq-grid">
+      <div class="faq">
+        <span class="faq-q">¿Puedo cancelar cuando quiera?</span>
+        <span class="faq-a">Sí. La suscripción se cancela al final del periodo facturado.</span>
+      </div>
+      <div class="faq">
+        <span class="faq-q">¿Qué es pay-as-you-go?</span>
+        <span class="faq-a">Próximamente: cuando superes el límite diario, se podrá activar pay-as-you-go.</span>
+      </div>
+      <div class="faq">
+        <span class="faq-q">¿Hay límite en exports?</span>
+        <span class="faq-a">No. Los exports CSV/JSON en Pro son ilimitados dentro de tu rate limit.</span>
+      </div>
+      <div class="faq">
+        <span class="faq-q">¿Ofrecen plan Enterprise?</span>
+        <span class="faq-a">Sí. Escríbenos a danielfonov71@vodtinker.dev para volúmenes altos o SLA.</span>
+      </div>
+    </div>
+  </section>
+</AppLayout>
+
+<style>
+  .bl-accent-line {
+    height: 2px;
+    width: calc(100% + 4rem);
+    background: var(--accent-gradient);
+    opacity: 0.9;
+    margin: -2rem -2rem 2rem;
+  }
+
+  .bl-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .bl-top h1 {
+    font-size: 1.75rem;
+    font-weight: 400;
+    margin: 0.5rem 0 0.2rem;
+    letter-spacing: -0.02em;
+  }
+  .bl-sub { font-size: 0.8125rem; color: var(--text-dim); }
+
+  .bl-summary {
+    display: flex;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  .bl-summary-cell {
+    padding: 0.7rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    border-right: 1px solid var(--border);
+    min-width: 120px;
+  }
+  .bl-summary-cell:last-child { border-right: none; }
+  .bl-cc-label {
+    font-size: 0.5625rem;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+  }
+  .bl-cc-value {
+    font-size: 1rem;
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .plan-pill {
+    display: inline-flex;
+    padding: 0.3rem 0.6rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    width: fit-content;
+  }
+  .plan-pill--pro { background: var(--accent-soft); border-color: var(--accent); color: var(--lavender); }
+
+  .panel { margin-bottom: 2.25rem; }
+  .panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.85rem;
+    gap: 1rem;
+  }
+  .panel-meta { font-size: 0.6875rem; color: var(--text-muted); }
+
+  /* ─── Success banner ─── */
+  .success-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1.1rem;
+    border: 1px solid color-mix(in srgb, var(--mint) 40%, var(--border));
+    background: color-mix(in srgb, var(--mint) 8%, transparent);
+    margin-bottom: 1.5rem;
+  }
+  .success-dot {
+    width: 8px; height: 8px;
+    background: var(--mint);
+    border-radius: 50%;
+    flex-shrink: 0;
+    animation: sbPulse 1.8s ease-in-out infinite;
+  }
+  @keyframes sbPulse {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--mint) 50%, transparent); }
+    60%      { box-shadow: 0 0 0 6px color-mix(in srgb, var(--mint) 0%, transparent); }
+  }
+  .success-banner div { display: flex; flex-direction: column; gap: 0.1rem; }
+  .success-banner strong {
+    font-size: 0.875rem;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .success-banner span { font-size: 0.75rem; color: var(--text-dim); }
+
+  /* ─── Plans grid ─── */
+  .plans-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0;
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .plan-card {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    border-right: 1px solid var(--border);
+    position: relative;
+  }
+  .plan-card:last-child { border-right: none; }
+  .plan-card--highlight { background: color-mix(in srgb, var(--accent) 3%, var(--surface)); }
+  .plan-card--current   { background: var(--surface); }
+
+  .plan-accent-line {
+    position: absolute;
+    left: 0; top: 0;
+    width: 100%; height: 2px;
+    background: var(--accent-gradient);
+  }
+
+  .plan-ribbon {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.5625rem;
+    letter-spacing: 0.1em;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--border-strong);
+    color: var(--text-dim);
+    background: var(--bg-1);
+  }
+  .plan-ribbon--pro {
+    color: var(--lavender);
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .plan-h {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .plan-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: 0.08em;
+  }
+  .plan-name--pro {
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .plan-tag {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .plan-price {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .plan-price-value {
+    font-size: 2.25rem;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .plan-price-unit {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+  }
+
+  .plan-features {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+  }
+  .pf-item {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 0.8125rem;
+    color: var(--text-dim);
+    line-height: 1.35;
+  }
+  .pf-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px; height: 16px;
+    font-size: 0.75rem;
+    border: 1px solid currentColor;
+    color: var(--mint);
+    font-family: 'IBM Plex Mono', monospace;
+    flex-shrink: 0;
+  }
+  .pf-item--off { color: var(--text-muted); }
+  .pf-item--off .pf-icon { color: var(--text-muted); }
+  .pf-item--muted { color: var(--text-muted); font-size: 0.75rem; }
+  .pf-item--muted .pf-icon { color: var(--text-muted); }
+
+  .plan-footer {
+    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: center;
+  }
+  .plan-current-label {
+    font-size: 0.625rem;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    padding: 0.5rem 0;
+  }
+  .plan-current-label--pro {
+    color: var(--lavender);
+  }
+  .plan-cta {
+    width: 100%;
+  }
+  .plan-cta:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
+
+  /* ─── Stats (Pro only) ─── */
+  .bill-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .bs-cell {
+    padding: 1.1rem 1.2rem;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .bs-cell:last-child { border-right: none; }
+  .bs-label {
+    font-size: 0.5625rem;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+  }
+  .bs-value {
+    font-size: 1.5rem;
+    color: var(--text);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  .bs-foot {
+    font-size: 0.625rem;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+  }
+
+  /* ─── FAQ ─── */
+  .faq-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .faq {
+    padding: 1.1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .faq:nth-child(2n) { border-right: none; }
+  .faq:nth-last-child(-n+2) { border-bottom: none; }
+  .faq-q {
+    font-size: 0.875rem;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .faq-a {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  @media (max-width: 900px) {
+    .plans-grid { grid-template-columns: 1fr; }
+    .plan-card  { border-right: none; border-bottom: 1px solid var(--border); }
+    .plan-card:last-child { border-bottom: none; }
+
+    .bill-stats { grid-template-columns: 1fr; }
+    .bs-cell    { border-right: none; border-bottom: 1px solid var(--border); }
+    .bs-cell:last-child { border-bottom: none; }
+
+    .faq-grid { grid-template-columns: 1fr; }
+    .faq      { border-right: none; }
+    .faq:nth-last-child(-n+2) { border-bottom: 1px solid var(--border); }
+    .faq:last-child { border-bottom: none; }
+  }
+
+  @media (max-width: 600px) {
+    .bl-top     { flex-direction: column; align-items: flex-start; }
+    .bl-summary { width: 100%; }
+  }
+</style>

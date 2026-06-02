@@ -1,0 +1,315 @@
+---
+const year = new Date().getFullYear()
+
+// Pixel-art font 5x7 para "OPENXIXÓN"
+const font: Record<string, string[]> = {
+  O: ['11111','10001','10001','10001','10001','10001','11111'],
+  P: ['11110','10001','10001','11110','10000','10000','10000'],
+  E: ['11111','10000','10000','11110','10000','10000','11111'],
+  N: ['10001','11001','11001','10101','10011','10011','10001'],
+  X: ['10001','01010','00100','00100','00100','01010','10001'],
+  I: ['11111','00100','00100','00100','00100','00100','11111'],
+  Ó: ['11111','10001','10001','10001','10001','10001','11111'],
+}
+
+const text = 'OPENXIXÓN'
+type Pixel = { x: number; y: number; tone: 'base' | 'alt' | 'hi' }
+const pixels: Pixel[] = []
+const LETTER_W = 5
+const LETTER_H = 7
+const GAP = 1
+const ACCENT_ROWS = 2
+
+text.split('').forEach((ch, i) => {
+  const glyph = font[ch]
+  if (!glyph) return
+  const xOff = i * (LETTER_W + GAP)
+  glyph.forEach((row, r) => {
+    row.split('').forEach((cell, c) => {
+      if (cell === '1') {
+        const x = xOff + c
+        const y = ACCENT_ROWS + r
+        // Patrón de tonos: mayoría 'base', algunos 'alt', raros 'hi'
+        const seed = (x * 7 + y * 13 + i * 3) % 11
+        const tone: Pixel['tone'] = seed === 0 ? 'hi' : seed < 3 ? 'alt' : 'base'
+        pixels.push({ x, y, tone })
+      }
+    })
+  })
+  if (ch === 'Ó') {
+    // Acento agudo encima: dos píxeles en diagonal
+    pixels.push({ x: xOff + 3, y: 0, tone: 'hi' })
+    pixels.push({ x: xOff + 2, y: 1, tone: 'hi' })
+  }
+})
+
+const COLS = text.length * (LETTER_W + GAP) - GAP
+const ROWS = ACCENT_ROWS + LETTER_H
+const UNIT = 10
+const INSET = 1
+---
+
+<footer class="footer">
+  <!-- Acento superior — línea delgada con gradiente -->
+  <div class="footer-accent-line" aria-hidden="true"></div>
+
+  <div class="footer-top container">
+    <div class="footer-col footer-brand-col">
+      <div class="footer-brand">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <rect x="0"  y="10" width="4" height="10" fill="currentColor"/>
+          <rect x="6"  y="4"  width="4" height="16" fill="currentColor"/>
+          <rect x="12" y="0"  width="4" height="20" fill="currentColor"/>
+          <rect x="16" y="6"  width="4" height="8"  fill="var(--accent)"/>
+        </svg>
+        <span>OpenXixón</span>
+      </div>
+      <p class="footer-desc">API pública y moderna para los datos abiertos del Ayuntamiento de Gijón. Calidad del aire, incidencias urbanas, multas de tráfico, demografía e inversiones municipales.</p>
+
+      <div class="system-status">
+        <span class="status-dot"></span>
+        <span>Todos los sistemas operativos</span>
+      </div>
+    </div>
+
+    <div class="footer-links">
+      <div class="footer-col">
+        <h4>Datasets</h4>
+        <a href="/aire" data-astro-reload>Calidad del Aire</a>
+        <a href="/incidencias">Incidencias Urbanas</a>
+        <a href="/multas">Multas de Tráfico</a>
+        <a href="/poblacion" data-astro-reload>Demografía</a>
+        <a href="/inversiones">Inversiones</a>
+      </div>
+
+      <div class="footer-col">
+        <h4>Desarrolladores</h4>
+        <a href="/docs">Documentación</a>
+        <a href="/datos">Catálogo de datos</a>
+        <a href="/changelog">Changelog</a>
+        <a href="/status">Estado del sistema</a>
+      </div>
+
+      <div class="footer-col">
+        <h4>Comunidad</h4>
+        <a href="https://github.com" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://opendata.gijon.es" target="_blank" rel="noopener">Portal Oficial</a>
+        <a href="/faq">FAQ</a>
+        <a href="mailto:danielfonov71@vodtinker.dev">Contacto</a>
+      </div>
+
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="/legal/terminos">Términos</a>
+        <a href="/legal/privacidad">Privacidad</a>
+        <a href="/legal/cookies">Cookies</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-pixel-wrap" aria-hidden="true">
+    <svg
+      class="footer-pixel"
+      viewBox={`0 0 ${COLS * UNIT} ${ROWS * UNIT}`}
+      width="100%"
+      preserveAspectRatio="xMidYMid meet"
+      role="img"
+      aria-label="OPENXIXÓN"
+    >
+      {pixels.map(p => (
+        <rect
+          class:list={['px', `px-${p.tone}`]}
+          x={p.x * UNIT + INSET}
+          y={p.y * UNIT + INSET}
+          width={UNIT - INSET * 2}
+          height={UNIT - INSET * 2}
+        />
+      ))}
+    </svg>
+  </div>
+
+  <div class="footer-bottom container">
+    <span class="footer-copy">© {year} OpenXixón · Hecho en Gijón</span>
+    <div class="footer-legal">
+      <a href="https://github.com" target="_blank" rel="noopener" aria-label="GitHub">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 .5a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2.2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.8 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.5.2 2.7.1 3 .7.8 1.2 1.8 1.2 3.1 0 4.5-2.7 5.5-5.3 5.8.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A11.5 11.5 0 0 0 12 .5z"/>
+        </svg>
+      </a>
+      <a href="#" aria-label="X / Twitter">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+        </svg>
+      </a>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    margin-top: 6rem;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+    overflow: hidden;
+  }
+
+  /* Línea de acento superior */
+  .footer-accent-line {
+    height: 2px;
+    width: 100%;
+    background: var(--accent-gradient);
+    opacity: 0.9;
+  }
+
+  .footer-top {
+    display: grid;
+    grid-template-columns: 1.1fr 2fr;
+    gap: clamp(2rem, 4vw, 4rem);
+    padding-top: 4rem;
+    padding-bottom: 3rem;
+    align-items: start;
+  }
+
+  .footer-brand-col {
+    max-width: 360px;
+  }
+
+  .footer-links {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: clamp(1.5rem, 3vw, 3rem);
+  }
+
+  @media (max-width: 1000px) {
+    .footer-top { grid-template-columns: 1fr; }
+    .footer-brand-col { max-width: 480px; }
+  }
+  @media (max-width: 640px) {
+    .footer-links { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 400px) {
+    .footer-links { grid-template-columns: 1fr; }
+  }
+
+  .footer-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+  }
+
+  .footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-weight: 500;
+    color: var(--text);
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .footer-desc {
+    font-size: 0.9375rem;
+    color: var(--text-dim);
+    line-height: 1.55;
+    margin-bottom: 0.25rem;
+  }
+
+  .system-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    width: fit-content;
+    margin-top: 0.25rem;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  .system-status .status-dot {
+    display: block;
+    width: 6px; height: 6px;
+    background: var(--green);
+    border-radius: 50%;
+  }
+
+  .footer-col h4 {
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-bottom: 0.35rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    color: var(--text-muted);
+  }
+
+  .footer-col a {
+    font-size: 0.9375rem;
+    color: var(--text-dim);
+    transition: color 0.15s;
+    padding: 0.1rem 0;
+  }
+  .footer-col a:hover { color: var(--text); }
+
+  .footer-pixel-wrap {
+    width: 100%;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+    padding: 1.5rem var(--gutter) 2rem;
+  }
+  .footer-pixel {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    user-select: none;
+  }
+  .footer-pixel .px-base { fill: var(--accent); }
+  .footer-pixel .px-alt  { fill: var(--lavender); }
+  .footer-pixel .px-hi   { fill: var(--mint); }
+  .footer-pixel .px      { opacity: 0.85; }
+
+  :root[data-theme="dark"] .footer-pixel { opacity: 0.55; }
+  :root[data-theme="light"] .footer-pixel { opacity: 0.70; }
+
+  .footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1.25rem;
+    padding-bottom: 1.25rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+    border-top: 1px solid var(--border);
+    margin-top: 1rem;
+  }
+
+  .footer-copy {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+
+  .footer-legal {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+  .footer-legal a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .footer-legal a:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
+</style>

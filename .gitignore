@@ -1,0 +1,34 @@
+# Environment
+.env
+.env.local
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.astro/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# Internal infrastructure (not for public repo)
+gatus/
+*.service
+scripts/check-spa.sh

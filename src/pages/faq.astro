@@ -1,0 +1,432 @@
+---
+import Layout from '../layouts/Layout.astro'
+
+const categories = [
+  {
+    id: 'general',
+    label: 'General',
+    // info "i" icon
+    icon: 'M6 0h2v2H6zM5 4h4v1H5zM6 5h2v7H6zM5 12h4v2H5z',
+  },
+  {
+    id: 'api',
+    label: 'API',
+    // code brackets
+    icon: 'M4 1h2v2H4zM2 3h2v8H2zM4 11h2v2H4zM8 1h2v2H8zm2 2h2v8h-2zM8 11h2v2H8z',
+  },
+  {
+    id: 'datos',
+    label: 'Datos',
+    // bar chart
+    icon: 'M0 9h3v5H0zm4-4h3v9H4zm5-5h3v14H9zM0 13h12v1H0z',
+  },
+  {
+    id: 'planes',
+    label: 'Planes',
+    // credit card
+    icon: 'M0 2h14v3H0zM0 7h14v1H0zM0 10h14v4H0zM2 4h3v1H2z',
+  },
+]
+
+const faqs = [
+  {
+    cat: 'general',
+    q: '¿Qué es OpenXixón?',
+    a: 'Un portal de datos abiertos del Ayuntamiento de Gijón con acceso libre a páginas públicas y una API freemium para uso programático. Puedes consultar datos de calidad del aire, población, inversiones, multas de tráfico e incidencias urbanas.',
+  },
+  {
+    cat: 'general',
+    q: '¿Los datos son oficiales del Ayuntamiento de Gijón?',
+    a: 'Sí. OpenXixón ingiere datos de las fuentes oficiales del Ayuntamiento de Gijón y del Principado de Asturias. Los datasets se actualizan automáticamente mediante un cron diario.',
+  },
+  {
+    cat: 'general',
+    q: '¿Puedo usar los datos en proyectos comerciales?',
+    a: 'Los datos públicos del Ayuntamiento están bajo licencias de datos abiertos que permiten su reutilización, incluyendo fines comerciales, con atribución. Consulta los términos específicos de cada dataset en sus fuentes originales.',
+  },
+  {
+    cat: 'api',
+    q: '¿Es realmente gratis utilizar esta API?',
+    a: 'Sí, la API es 100% gratuita para uso no comercial y pruebas. El plan Free (que funciona sin API key) te permite realizar hasta 100 peticiones diarias. Para un mayor volumen de integraciones o aplicaciones en producción, puedes crear una cuenta gratuita y obtener una API key.',
+  },
+  {
+    cat: 'api',
+    q: '¿Cada cuánto tiempo se actualizan los datos devueltos?',
+    a: 'La frecuencia de actualización depende exclusivamente del dataset. Por ejemplo, los datos de Calidad del Aire se actualizan horariamente leyendo de las estaciones, las Inversiones municipales se sincronizan a diario y la Población se consolida cada año natural.',
+  },
+  {
+    cat: 'api',
+    q: '¿Existe un entorno Sandbox para realizar mis pruebas?',
+    a: 'Actualmente no necesitas un entorno Sandbox aislado. Como nuestra API es de solo lectura (únicamente expone métodos GET) para los datos abiertos, puedes hacer todas tus pruebas de integración directamente contra los endpoints de producción sin riesgo alguno.',
+  },
+  {
+    cat: 'api',
+    q: '¿Cómo obtengo mi API key?',
+    a: 'Regístrate gratuitamente en openxixon.com, accede a tu dashboard y encontrarás tu API key en la sección de configuración. El plan Free ya incluye una API key con 100 peticiones/día.',
+  },
+  {
+    cat: 'datos',
+    q: '¿Qué datasets están disponibles?',
+    a: 'Actualmente ofrecemos cinco datasets: Calidad del Aire (NO₂, PM10, O₃, PM2.5), Población (padrón municipal por barrios), Inversiones municipales (contratos públicos), Multas de tráfico y Incidencias urbanas. El catálogo se amplía periódicamente.',
+  },
+  {
+    cat: 'planes',
+    q: '¿Qué diferencia hay entre el plan Free y Pro?',
+    a: 'El plan Free es gratuito e incluye 100 peticiones/día y 30 días de histórico. El plan Pro (próximamente) incluirá 10.000 peticiones/día y 1 año de histórico. Además, el plan Pro ofrecerá soporte prioritario.',
+  },
+]
+---
+
+<Layout title="Preguntas frecuentes · OpenXixón">
+  <div class="faq-wrap">
+
+    <!-- Header -->
+    <header class="faq-header">
+      <div class="faq-header-inner">
+        <span class="label mono">Soporte</span>
+        <h1>Preguntas frecuentes</h1>
+        <p>Respuestas a las dudas habituales sobre OpenXixón, los planes y la API.</p>
+      </div>
+      <div class="faq-stat-strip">
+        <div class="faq-stat">
+          <span class="faq-stat-n mono">{faqs.length}</span>
+          <span class="faq-stat-l mono">preguntas</span>
+        </div>
+        <div class="faq-stat-div"></div>
+        <div class="faq-stat">
+          <span class="faq-stat-n mono">{categories.length}</span>
+          <span class="faq-stat-l mono">categorías</span>
+        </div>
+        <div class="faq-stat-div"></div>
+        <div class="faq-stat">
+          <a href="mailto:hola@openxixon.com" class="faq-stat-n faq-stat-link mono">hola@openxixon.com</a>
+          <span class="faq-stat-l mono">soporte directo</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="faq-body">
+
+      <!-- Category filter pills -->
+      <aside class="faq-sidebar">
+        <span class="faq-sidebar-label mono">Categorías</span>
+        <nav class="faq-cats" aria-label="Filtrar por categoría">
+          <button class="faq-cat active" data-cat="all">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
+              <path d="M0 0h6v6H0zm8 0h6v6H8zM0 8h6v6H0zm8 8h6v6H8z"/>
+            </svg>
+            Todo
+          </button>
+          {categories.map(c => (
+            <button class="faq-cat" data-cat={c.id}>
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
+                <path d={c.icon}/>
+              </svg>
+              {c.label}
+            </button>
+          ))}
+        </nav>
+
+        <!-- Quick links -->
+        <div class="faq-quicklinks">
+          <span class="faq-sidebar-label mono" style="margin-top:1.5rem">Accesos rápidos</span>
+          <a href="/docs" class="faq-ql">Documentación →</a>
+          <a href="/precios" class="faq-ql">Ver planes →</a>
+          <a href="/registro" class="faq-ql">Crear cuenta gratis →</a>
+        </div>
+      </aside>
+
+      <!-- FAQ list -->
+      <main class="faq-list" id="faq-list">
+        {categories.map(cat => {
+          const items = faqs.filter(f => f.cat === cat.id)
+          if (!items.length) return null
+          return (
+            <section class="faq-section" data-section={cat.id}>
+              <div class="faq-section-header">
+                <svg width="16" height="16" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
+                  <path d={cat.icon}/>
+                </svg>
+                <h2 class="faq-section-title">{cat.label}</h2>
+                <span class="faq-section-count mono">{items.length}</span>
+              </div>
+              <div class="faq-items">
+                {items.map((f, i) => (
+                  <details class="faq-item" data-cat={f.cat}>
+                    <summary class="faq-q">
+                      <span class="faq-q-num mono">0{i + 1}</span>
+                      <span class="faq-q-text">{f.q}</span>
+                      <svg class="faq-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                        <path d="M1 3L5 7L9 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"/>
+                      </svg>
+                    </summary>
+                    <div class="faq-a">
+                      <p>{f.a}</p>
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </section>
+          )
+        })}
+
+        <!-- Empty state -->
+        <div class="faq-empty" id="faq-empty" aria-hidden="true">
+          <span class="mono">Sin resultados para esta categoría.</span>
+        </div>
+      </main>
+    </div>
+
+    <!-- CTA footer -->
+    <footer class="faq-cta">
+      <div class="faq-cta-inner">
+        <div>
+          <h3>¿No encuentras tu respuesta?</h3>
+          <p>Escríbenos directamente y te respondemos en menos de 24 h.</p>
+        </div>
+        <div class="faq-cta-btns">
+          <a href="mailto:hola@openxixon.com" class="btn btn-primary">Contactar</a>
+          <a href="/docs" class="btn btn-ghost">Ver documentación</a>
+        </div>
+      </div>
+    </footer>
+
+  </div>
+</Layout>
+
+<script>
+  function initFaq() {
+    const btns  = document.querySelectorAll<HTMLButtonElement>('.faq-cat')
+    const sections = document.querySelectorAll<HTMLElement>('.faq-section')
+    const empty = document.getElementById('faq-empty')
+
+    function filter(cat: string) {
+      btns.forEach(b => b.classList.toggle('active', b.dataset.cat === cat))
+      let visible = 0
+      sections.forEach(s => {
+        const show = cat === 'all' || s.dataset.section === cat
+        s.hidden = !show
+        if (show) visible++
+      })
+      if (empty) empty.setAttribute('aria-hidden', String(visible > 0))
+    }
+
+    btns.forEach(btn => btn.addEventListener('click', () => filter(btn.dataset.cat ?? 'all')))
+  }
+  document.addEventListener('astro:page-load', initFaq)
+</script>
+
+<style>
+  .faq-wrap {
+    max-width: var(--container-max, 1200px);
+    margin: 0 auto;
+    padding: 3rem var(--gutter, 1.5rem) 4rem;
+  }
+
+  /* ── Header ── */
+  .faq-header {
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+  .faq-header h1 { margin: 0.5rem 0 0.4rem; font-size: 2rem; font-weight: 400; letter-spacing: -0.02em; }
+  .faq-header p  { color: var(--text-muted); font-size: 0.9375rem; margin: 0; }
+
+  .faq-stat-strip {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    flex-shrink: 0;
+  }
+  .faq-stat { display: flex; flex-direction: column; align-items: flex-end; gap: 0.1rem; }
+  .faq-stat-n { font-size: 1.25rem; font-weight: 600; color: var(--text); line-height: 1; }
+  .faq-stat-l { font-size: 0.5625rem; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; }
+  .faq-stat-link { text-decoration: none; color: var(--accent); font-size: 0.75rem; }
+  .faq-stat-link:hover { color: var(--lavender); }
+  .faq-stat-div { width: 1px; height: 28px; background: var(--border); }
+
+  /* ── Body: sidebar + list ── */
+  .faq-body {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 3rem;
+    align-items: start;
+  }
+
+  /* ── Sidebar ── */
+  .faq-sidebar { position: sticky; top: 90px; display: flex; flex-direction: column; gap: 0.4rem; }
+  .faq-sidebar-label { font-size: 0.5625rem; color: var(--text-muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.25rem; display: block; }
+
+  .faq-cats { display: flex; flex-direction: column; gap: 0.2rem; }
+  .faq-cat {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.5rem 0.65rem;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s;
+    border-radius: var(--radius-sm);
+  }
+  .faq-cat:hover { color: var(--text); background: var(--surface-2); }
+  .faq-cat.active {
+    color: var(--text);
+    background: var(--surface-2);
+    border-color: var(--border);
+  }
+  .faq-cat.active svg { color: var(--accent); }
+
+  .faq-quicklinks { display: flex; flex-direction: column; gap: 0.35rem; }
+  .faq-ql {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 0.3rem 0;
+    transition: color 0.15s;
+  }
+  .faq-ql:hover { color: var(--accent); }
+
+  /* ── FAQ sections ── */
+  .faq-list { display: flex; flex-direction: column; gap: 2.5rem; }
+
+  .faq-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-muted);
+  }
+  .faq-section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin: 0;
+  }
+  .faq-section-count {
+    font-size: 0.5625rem;
+    padding: 0.1rem 0.35rem;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+    margin-left: auto;
+  }
+
+  .faq-items { display: flex; flex-direction: column; }
+
+  /* ── Accordion item ── */
+  .faq-item { border-bottom: 1px solid var(--border); }
+  .faq-item:first-child { border-top: 1px solid var(--border); }
+
+  .faq-q {
+    cursor: pointer;
+    padding: 1.1rem 0;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    transition: color 0.15s;
+  }
+  .faq-q::-webkit-details-marker { display: none; }
+  .faq-q:hover { color: var(--text); }
+
+  .faq-q-num {
+    font-size: 0.5625rem;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+    width: 1.5rem;
+  }
+  .faq-q-text {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--text);
+    flex: 1;
+  }
+  .faq-chevron {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    transition: transform 0.2s cubic-bezier(0.4,0,0.2,1);
+  }
+  .faq-item[open] .faq-chevron { transform: rotate(180deg); }
+  .faq-item[open] .faq-q-num  { color: var(--accent); }
+
+  .faq-a {
+    padding: 0 0 1.25rem 2.35rem;
+    animation: fa-in 0.18s ease;
+  }
+  .faq-a p {
+    color: var(--text-muted);
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    margin: 0;
+  }
+  @keyframes fa-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Empty state ── */
+  .faq-empty[aria-hidden="true"] { display: none; }
+  .faq-empty {
+    padding: 3rem;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    border: 1px dashed var(--border);
+  }
+
+  /* ── CTA footer ── */
+  .faq-cta {
+    margin-top: 4rem;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+  }
+  .faq-cta::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: var(--accent-gradient, var(--accent));
+  }
+  .faq-cta-inner {
+    padding: 2rem 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+  .faq-cta h3 { margin: 0 0 0.3rem; font-size: 1.125rem; font-weight: 500; }
+  .faq-cta p  { margin: 0; color: var(--text-muted); font-size: 0.875rem; }
+  .faq-cta-btns { display: flex; gap: 0.75rem; flex-shrink: 0; }
+
+  /* ── Responsive ── */
+  @media (max-width: 860px) {
+    .faq-body { grid-template-columns: 1fr; gap: 1.5rem; }
+    .faq-sidebar { position: static; }
+    .faq-cats { flex-direction: row; flex-wrap: wrap; }
+    .faq-quicklinks { display: none; }
+    .faq-header { flex-direction: column; align-items: flex-start; }
+    .faq-stat-strip { align-self: stretch; justify-content: flex-start; }
+    .faq-stat { align-items: flex-start; }
+  }
+  @media (max-width: 480px) {
+    .faq-cta-inner { flex-direction: column; align-items: flex-start; }
+    .faq-stat-strip { flex-wrap: wrap; }
+  }
+</style>

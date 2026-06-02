@@ -1,0 +1,506 @@
+---
+import '../styles/global.css'
+import ThemeToggle from '../components/ThemeToggle.astro'
+import PixelLoader from '../components/PixelLoader.astro'
+import LazyReveal from '../components/LazyReveal.astro'
+import { ClientRouter } from 'astro:transitions'
+import { db, getSession } from '../lib/supabase'
+
+interface Props { title: string }
+const { title } = Astro.props
+const { user } = await getSession(Astro.cookies, Astro.request)
+
+const { data: profile } = user
+  ? await db.from('profiles').select('plan').eq('user_id', user.id).single()
+  : { data: null }
+const plan = (profile?.plan as 'free' | 'pro') ?? 'free'
+
+const nav = [
+  { href: '/app/dashboard', label: 'Dashboard', icon: 'dashboard' },
+  { href: '/app/api-keys',  label: 'API Keys',  icon: 'key' },
+  { href: '/app/alertas',   label: 'Alertas',   icon: 'bell' },
+  { href: '/app/billing',   label: 'Plan',      icon: 'card' },
+]
+const current = Astro.url.pathname
+
+const email = user?.email ?? ''
+const alias = email.split('@')[0] || 'usuario'
+const initial = alias[0]?.toUpperCase() ?? '·'
+---
+
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{title} — OpenXixón</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="theme-color" content="#0D0D0D" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" />
+  <ClientRouter />
+  <script is:inline>
+    // Pre-paint: gate para lazy-reveal (evita FOUC) + restauración de tema en cada swap
+    document.documentElement.dataset.lazyReady = '';
+    var applyTheme = function() {
+      try {
+        var stored = localStorage.getItem('ox-theme')
+        var theme = stored || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+        document.documentElement.setAttribute('data-theme', theme)
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark')
+      }
+    };
+    applyTheme();
+    document.addEventListener('astro:after-swap', applyTheme);
+  </script>
+</head>
+<body>
+  <PixelLoader />
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Navegación principal del panel">
+      <!-- Top: brand + back link -->
+      <div class="sb-top">
+        <a href="/" class="sb-brand" aria-label="OpenXixón — inicio">
+          <svg class="sb-mark" width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <rect x="0"  y="10" width="4" height="10" fill="currentColor"/>
+            <rect x="6"  y="4"  width="4" height="16" fill="currentColor"/>
+            <rect x="12" y="0"  width="4" height="20" fill="currentColor"/>
+            <rect x="16" y="6"  width="4" height="8"  fill="var(--accent)"/>
+          </svg>
+          <span class="sb-brand-name">OpenXixón</span>
+        </a>
+        <a href="/" class="sb-back mono" title="Volver al sitio">↩</a>
+      </div>
+
+      <!-- Accent divider -->
+      <div class="sb-divider" aria-hidden="true"></div>
+
+      <!-- Menu label -->
+      <span class="sb-section-label mono">PANEL</span>
+
+      <!-- Navigation -->
+      <nav class="sidebar-nav">
+        {nav.map(item => {
+          const isActive = current === item.href
+          return (
+            <a href={item.href} class:list={['sb-link', { active: isActive }]}>
+              <span class="sb-link-icon" aria-hidden="true">
+                {item.icon === 'dashboard' && (
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                    <rect x="1" y="1" width="6" height="6"/>
+                    <rect x="9" y="1" width="6" height="6"/>
+                    <rect x="1" y="9" width="6" height="6"/>
+                    <rect x="9" y="9" width="6" height="6"/>
+                  </svg>
+                )}
+                {item.icon === 'key' && (
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="5.5" cy="8" r="2.5"/>
+                    <path d="M8 8h7M12.5 8v2.5M14 8v1.8"/>
+                  </svg>
+                )}
+                {item.icon === 'bell' && (
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M8 2.5v1"/>
+                    <path d="M4 8a4 4 0 0 1 8 0v3l1.2 1.6H2.8L4 11z"/>
+                    <path d="M6.6 13.2a1.5 1.5 0 0 0 2.8 0"/>
+                  </svg>
+                )}
+                {item.icon === 'card' && (
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                    <rect x="1.5" y="3.5" width="13" height="9"/>
+                    <line x1="1.5" y1="6.5" x2="14.5" y2="6.5"/>
+                    <line x1="3.5" y1="10" x2="6" y2="10"/>
+                  </svg>
+                )}
+              </span>
+              <span class="sb-link-label">{item.label}</span>
+              {isActive && <span class="sb-link-caret" aria-hidden="true">›</span>}
+            </a>
+          )
+        })}
+      </nav>
+
+      <!-- Footer -->
+      <div class="sb-footer">
+        <!-- Plan chip / upgrade -->
+        <a href="/app/billing" class:list={['sb-plan-card', `sb-plan-card--${plan}`]}>
+          <div class="sb-plan-head">
+            <span class="sb-plan-label mono">PLAN</span>
+            <span class:list={['sb-plan-chip', `sb-plan-chip--${plan}`]}>{plan.toUpperCase()}</span>
+          </div>
+          {plan === 'free' ? (
+            <span class="sb-plan-cta">Mejorar a Pro →</span>
+          ) : (
+            <span class="sb-plan-cta sb-plan-cta--pro">Facturación →</span>
+          )}
+        </a>
+
+        <!-- User block -->
+        <div class="sb-user">
+          <div class="sb-avatar mono" aria-hidden="true">{initial}</div>
+          <div class="sb-user-info">
+            <span class="sb-user-alias">{alias}</span>
+            <span class="sb-user-email mono" title={email}>{email}</span>
+          </div>
+        </div>
+
+        <!-- Actions: theme toggle + signout -->
+        <div class="sb-actions">
+          <ThemeToggle />
+          <form method="post" action="/auth/signout" style="flex:1;display:contents;">
+            <button type="submit" class="sb-signout">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M6 2H3v12h3"/>
+                <path d="M10 5l3 3-3 3"/>
+                <line x1="13" y1="8" x2="6" y2="8"/>
+              </svg>
+              <span>Salir</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </aside>
+
+    <main class="app-main">
+      <!-- Mobile toggle -->
+      <button class="sb-mobile-toggle" id="sb-toggle" aria-label="Abrir menú" type="button">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+          <path d="M3 6h14M3 10h14M3 14h14"/>
+        </svg>
+      </button>
+      <div class="sb-mobile-overlay" id="sb-overlay" aria-hidden="true"></div>
+
+      <div class="app-content">
+        <slot />
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const toggle = document.getElementById('sb-toggle')
+    const sidebar = document.getElementById('sidebar')
+    const overlay = document.getElementById('sb-overlay')
+    const close = () => { sidebar?.classList.remove('open'); overlay?.classList.remove('open') }
+    toggle?.addEventListener('click', () => {
+      sidebar?.classList.toggle('open')
+      overlay?.classList.toggle('open')
+    })
+    overlay?.addEventListener('click', close)
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close() })
+  </script>
+  <LazyReveal />
+</body>
+</html>
+
+<style>
+  /* ───── Shell ───── */
+  .app-shell { display: flex; min-height: 100vh; background: var(--bg); }
+
+  /* ───── Sidebar ───── */
+  .sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    background: var(--bg-1);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 1.1rem 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  /* ───── Brand / top ───── */
+  .sb-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1rem 0.85rem;
+  }
+  .sb-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--text);
+  }
+  .sb-mark { flex-shrink: 0; color: var(--text); }
+  .sb-brand-name {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .sb-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px; height: 26px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .sb-back:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
+
+  .sb-divider {
+    height: 1px;
+    margin: 0 1rem 0.95rem;
+    background: linear-gradient(90deg, transparent 0%, var(--border) 20%, var(--border) 80%, transparent 100%);
+  }
+
+  .sb-section-label {
+    display: block;
+    font-size: 0.5625rem;
+    color: var(--text-muted);
+    letter-spacing: 0.14em;
+    padding: 0 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  /* ───── Nav links ───── */
+  .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0 0.6rem;
+    flex: 1;
+  }
+  .sb-link {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.55rem 0.7rem;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    border-left: 2px solid transparent;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+    position: relative;
+  }
+  .sb-link-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px; height: 14px;
+    flex-shrink: 0;
+    color: var(--text-muted);
+    transition: color 0.15s;
+  }
+  .sb-link-label { flex: 1; }
+  .sb-link-caret {
+    color: var(--accent);
+    font-weight: 400;
+    font-size: 1rem;
+  }
+  .sb-link:hover {
+    color: var(--text-dim);
+    background: var(--surface-2);
+  }
+  .sb-link:hover .sb-link-icon { color: var(--text-dim); }
+
+  .sb-link.active {
+    color: var(--text);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    border-left-color: var(--accent);
+    font-weight: 500;
+  }
+  .sb-link.active .sb-link-icon { color: var(--accent); }
+
+  /* ───── Footer ───── */
+  .sb-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0 0.75rem;
+    margin-top: 1rem;
+  }
+
+  .sb-plan-card {
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    transition: border-color 0.15s, background 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .sb-plan-card::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: var(--accent-gradient);
+    opacity: 0.85;
+  }
+  .sb-plan-card:hover { border-color: var(--border-strong); }
+  .sb-plan-card--pro {
+    background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  }
+
+  .sb-plan-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .sb-plan-label {
+    font-size: 0.5625rem;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+  }
+  .sb-plan-chip {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    padding: 0.15rem 0.4rem;
+    border: 1px solid var(--border-strong);
+    color: var(--text-dim);
+  }
+  .sb-plan-chip--pro {
+    color: var(--lavender);
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+  .sb-plan-cta {
+    font-size: 0.75rem;
+    color: var(--accent);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .sb-plan-cta--pro { color: var(--text-dim); }
+
+  /* ───── User ───── */
+  .sb-user {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.25rem;
+  }
+  .sb-avatar {
+    width: 30px; height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--accent-gradient);
+    color: #0D0D0D;
+    letter-spacing: 0;
+    flex-shrink: 0;
+  }
+  .sb-user-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+    min-width: 0;
+    flex: 1;
+  }
+  .sb-user-alias {
+    font-size: 0.8125rem;
+    color: var(--text);
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sb-user-email {
+    font-size: 0.625rem;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ───── Actions ───── */
+  .sb-actions {
+    display: flex;
+    gap: 0.4rem;
+    align-items: stretch;
+  }
+  .sb-signout {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    height: 36px;
+    padding: 0 0.75rem;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.8125rem;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .sb-signout:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
+    background: var(--surface-2);
+  }
+
+  /* ───── Main ───── */
+  .app-main {
+    flex: 1;
+    overflow-x: hidden;
+    position: relative;
+  }
+  .app-content {
+    max-width: 100%;
+    margin: 0;
+    padding: 2rem var(--gutter) 4rem;
+  }
+
+  /* ───── Mobile ───── */
+  .sb-mobile-toggle {
+    display: none;
+    position: fixed;
+    top: 0.85rem;
+    left: 0.85rem;
+    width: 36px; height: 36px;
+    border: 1px solid var(--border);
+    background: var(--bg-1);
+    color: var(--text-dim);
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+  }
+  .sb-mobile-toggle:hover { color: var(--text); border-color: var(--border-strong); }
+  .sb-mobile-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: color-mix(in srgb, var(--bg) 70%, transparent);
+    backdrop-filter: blur(3px);
+    z-index: 40;
+  }
+  .sb-mobile-overlay.open { display: block; }
+
+  @media (max-width: 900px) {
+    .sidebar {
+      position: fixed;
+      top: 0; left: 0;
+      z-index: 45;
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+      width: 260px;
+      box-shadow: none;
+    }
+    .sidebar.open { transform: translateX(0); box-shadow: 8px 0 24px rgba(0,0,0,0.3); }
+    .sb-mobile-toggle { display: inline-flex; }
+    .app-content { padding: 4rem 1.25rem 3rem; }
+  }
+
+  /* ───── Light theme refinements ───── */
+  :root[data-theme="light"] .sb-avatar {
+    color: #FFFFFF;
+  }
+  :root[data-theme="light"] .sidebar {
+    background: var(--bg-1);
+    border-right-color: var(--border);
+  }
+</style>

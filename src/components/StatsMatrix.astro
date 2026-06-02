@@ -1,0 +1,408 @@
+---
+// Matriz comparativa pixel-art tipo "stats screen" arcade.
+// Sustituye la tabla comparativa tradicional.
+
+type Cell =
+  | { kind: 'check' }
+  | { kind: 'dash' }
+  | { kind: 'text'; value: string; tone?: 'dim' | 'accent' };
+
+type Row = {
+  label: string;
+  cells: [Cell, Cell, Cell];
+};
+
+type Section = {
+  title: string;
+  rows: Row[];
+};
+
+const C = (value: string, tone?: 'dim' | 'accent'): Cell => ({ kind: 'text', value, tone });
+const CHECK: Cell = { kind: 'check' };
+const DASH: Cell = { kind: 'dash' };
+
+const sections: Section[] = [
+  {
+    title: 'Acceso',
+    rows: [
+      { label: 'Histórico', cells: [C('30d', 'dim'), C('1 año', 'accent'), C('1 año', 'accent')] },
+      { label: 'Datasets', cells: [CHECK, CHECK, CHECK] },
+      { label: 'Calidad del aire', cells: [CHECK, CHECK, CHECK] },
+      { label: 'Población', cells: [CHECK, CHECK, CHECK] },
+      { label: 'Presupuestos', cells: [CHECK, CHECK, CHECK] },
+    ],
+  },
+  {
+    title: 'API',
+    rows: [
+      { label: 'Req / día', cells: [C('100', 'dim'), C('10K', 'accent'), C('10K + extra', 'accent')] },
+      { label: 'Rate limit', cells: [C('20 rpm', 'dim'), C('500 rpm', 'accent'), C('500 rpm', 'accent')] },
+      { label: 'API key personal', cells: [CHECK, CHECK, CHECK] },
+    ],
+  },
+  {
+    title: 'Alertas',
+    rows: [
+      { label: 'Calidad del aire', cells: [C('3', 'dim'), C('∞', 'accent'), C('∞', 'accent')] },
+      { label: 'Notificación email', cells: [CHECK, CHECK, CHECK] },
+    ],
+  },
+  {
+    title: 'Facturación',
+    rows: [
+      { label: 'Precio mensual', cells: [C('Gratis', 'dim'), C('Próx.', 'accent'), C('Próx.', 'accent')] },
+      { label: 'Cancelación', cells: [CHECK, C('Inmediata', 'accent'), C('Inmediata', 'accent')] },
+    ],
+  },
+];
+
+const PLAN_LABELS: ['FREE', 'PRO', 'PAYG'] = ['FREE', 'PRO', 'PAYG'];
+---
+
+<div class="stats-matrix" data-active-col="1">
+  <!-- Header bar -->
+  <div class="matrix-header" aria-hidden="true">
+    <span class="header-dots">
+      <span class="dot dot-mint"></span>
+      <span class="dot dot-lavender"></span>
+      <span class="dot dot-accent"></span>
+    </span>
+    <span class="header-title mono">STATS SCREEN</span>
+    <span class="header-version mono">v1.0</span>
+  </div>
+
+  <!-- Mobile column toggle -->
+  <div class="matrix-mobile-toggle" role="tablist">
+    {PLAN_LABELS.map((label, i) => (
+      <button
+        type="button"
+        class:list={['mob-tab mono', i === 1 ? 'is-active' : '']}
+        data-col={i}
+        role="tab"
+        aria-selected={i === 1 ? 'true' : 'false'}
+      >
+        {label}
+      </button>
+    ))}
+  </div>
+
+  <!-- Table -->
+  <div class="matrix-scroll">
+    <table class="matrix-table">
+      <thead>
+        <tr>
+          <th class="col-feat" scope="col">FEATURE</th>
+          <th class="col-plan" data-col="0" scope="col">FREE</th>
+          <th class="col-plan col-pro" data-col="1" scope="col">PRO</th>
+          <th class="col-plan" data-col="2" scope="col">PAYG</th>
+        </tr>
+      </thead>
+      <tbody>
+        {sections.map((section) => (
+          <>
+            <tr class="section-row">
+              <td colspan="4">
+                <span class="section-deco">─</span>
+                <span class="section-text mono">{section.title.toUpperCase()}</span>
+                <span class="section-deco">─</span>
+              </td>
+            </tr>
+            {section.rows.map((row) => (
+              <tr class="data-row">
+                <td class="cell-feat">
+                  <span class="cursor-px" aria-hidden="true">▶</span>
+                  <span>{row.label}</span>
+                </td>
+                {row.cells.map((cell, i) => (
+                  <td class:list={['cell-plan', i === 1 ? 'cell-pro' : '']} data-col={i}>
+                    {cell.kind === 'check' && (
+                      <svg class="px-arcade-check" viewBox="0 0 12 12" width="14" height="14" aria-label="Sí">
+                        <rect x="0" y="6" width="3" height="3" />
+                        <rect x="3" y="9" width="3" height="3" />
+                        <rect x="6" y="6" width="3" height="3" />
+                        <rect x="9" y="3" width="3" height="3" />
+                        <rect x="6" y="3" width="3" height="3" />
+                      </svg>
+                    )}
+                    {cell.kind === 'dash' && (
+                      <span class="px-dash mono" aria-label="No">—</span>
+                    )}
+                    {cell.kind === 'text' && (
+                      <span class:list={['mono', cell.tone === 'dim' ? 'val-dim' : '', cell.tone === 'accent' ? 'val-accent' : '']}>
+                        {cell.value}
+                      </span>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<style>
+  .stats-matrix {
+    position: relative;
+    border: 2px solid var(--text);
+    background: var(--bg);
+    box-shadow: 8px 8px 0 var(--border);
+    overflow: hidden;
+  }
+
+  /* Pixel corners */
+  .stats-matrix::before,
+  .stats-matrix::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    z-index: 2;
+  }
+  .stats-matrix::before { top: -2px; left: -2px; }
+  .stats-matrix::after { bottom: -2px; right: -2px; background: var(--mint); }
+
+  .matrix-header {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.75rem 1.25rem;
+    background: var(--bg-1);
+    border-bottom: 2px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .matrix-header::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      transparent 49%,
+      rgba(255,255,255,0.03) 50%,
+      transparent 51%,
+      transparent 100%
+    );
+    background-size: 100% 4px;
+    pointer-events: none;
+    animation: matrix-scan 12s linear infinite;
+  }
+  @keyframes matrix-scan {
+    from { background-position: 0 0; }
+    to { background-position: 0 100%; }
+  }
+
+  .header-dots { display: inline-flex; gap: 4px; }
+  .dot { width: 8px; height: 8px; display: inline-block; }
+  .dot-mint { background: var(--mint); }
+  .dot-lavender { background: var(--lavender); }
+  .dot-accent { background: var(--accent); }
+
+  .header-title {
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    color: var(--text);
+    font-weight: 700;
+  }
+  .header-version {
+    margin-left: auto;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+  }
+
+  .matrix-mobile-toggle {
+    display: none;
+  }
+
+  .matrix-scroll {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .matrix-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+
+  .matrix-table th {
+    padding: 1rem 1.25rem;
+    background: var(--surface);
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    text-align: center;
+    border-bottom: 2px solid var(--border);
+    font-weight: 700;
+  }
+  .matrix-table th.col-feat { text-align: left; }
+  .matrix-table th.col-pro {
+    color: var(--lavender);
+    background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+    border-left: 1px dashed var(--accent);
+    border-right: 1px dashed var(--accent);
+  }
+
+  .matrix-table td {
+    padding: 0.65rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+    text-align: center;
+    vertical-align: middle;
+    transition: background 0.1s ease;
+  }
+  .matrix-table tr:last-child td { border-bottom: none; }
+
+  .cell-feat {
+    text-align: left;
+    color: var(--text);
+    font-weight: 500;
+    position: relative;
+    padding-left: 1.75rem !important;
+  }
+  .cursor-px {
+    position: absolute;
+    left: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--accent);
+    font-size: 0.85rem;
+    opacity: 0;
+    transition: opacity 0.1s ease;
+  }
+
+  .data-row:hover td {
+    background: color-mix(in srgb, var(--accent) 4%, var(--bg));
+  }
+  .data-row:hover .cursor-px {
+    opacity: 1;
+  }
+
+  .cell-pro {
+    background: color-mix(in srgb, var(--accent) 6%, var(--bg));
+    border-left: 1px dashed color-mix(in srgb, var(--accent) 35%, transparent);
+    border-right: 1px dashed color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+  .data-row:hover .cell-pro {
+    background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+  }
+
+  .px-arcade-check {
+    fill: var(--mint);
+    display: inline-block;
+    vertical-align: middle;
+    shape-rendering: crispEdges;
+  }
+  .cell-pro .px-arcade-check { fill: var(--lavender); }
+
+  .px-dash {
+    color: var(--text-muted);
+    opacity: 0.5;
+  }
+
+  .val-dim { color: var(--text-muted); font-size: 0.85rem; }
+  .val-accent { color: var(--lavender); font-size: 0.85rem; font-weight: 600; }
+  .cell-pro .val-accent { color: var(--mint); text-shadow: 0 0 8px color-mix(in srgb, var(--mint) 40%, transparent); }
+
+  /* Section row (separator) */
+  .section-row td {
+    background: var(--surface-2);
+    color: var(--text-muted);
+    padding: 0.5rem 1.25rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.18em;
+    text-align: left;
+    border-top: 1px solid var(--border);
+    font-weight: 700;
+  }
+  .section-row:hover td { background: var(--surface-2); }
+  .section-deco {
+    color: var(--accent);
+    margin: 0 0.5rem;
+    opacity: 0.6;
+  }
+
+  /* Mobile: 2 columns + tab toggle */
+  @media (max-width: 700px) {
+    .matrix-mobile-toggle {
+      display: flex;
+      gap: 0;
+      padding: 0.5rem;
+      background: var(--bg-1);
+      border-bottom: 1px solid var(--border);
+    }
+    .mob-tab {
+      flex: 1;
+      appearance: none;
+      background: transparent;
+      border: 1px dashed var(--border-strong);
+      color: var(--text-muted);
+      padding: 0.5rem 0.5rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .mob-tab + .mob-tab { border-left: 0; }
+    .mob-tab.is-active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    /* Hide the non-active plan columns */
+    .stats-matrix[data-active-col="0"] [data-col="1"],
+    .stats-matrix[data-active-col="0"] [data-col="2"],
+    .stats-matrix[data-active-col="1"] [data-col="0"],
+    .stats-matrix[data-active-col="1"] [data-col="2"],
+    .stats-matrix[data-active-col="2"] [data-col="0"],
+    .stats-matrix[data-active-col="2"] [data-col="1"] {
+      display: none;
+    }
+    .matrix-table th, .matrix-table td { padding: 0.5rem 0.75rem; }
+    .cell-feat { padding-left: 1.25rem !important; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .matrix-header::after { animation: none; }
+    .data-row:hover td { transition: none; }
+  }
+</style>
+
+<script>
+  function initStatsMatrix() {
+    const matrices = document.querySelectorAll<HTMLElement>('.stats-matrix');
+    matrices.forEach((matrix) => {
+      if (matrix.dataset.bound === '1') return;
+      matrix.dataset.bound = '1';
+
+      const tabs = matrix.querySelectorAll<HTMLButtonElement>('.mob-tab');
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+          const col = tab.dataset.col!;
+          matrix.dataset.activeCol = col;
+          tabs.forEach((t) => {
+            const active = t.dataset.col === col;
+            t.classList.toggle('is-active', active);
+            t.setAttribute('aria-selected', active ? 'true' : 'false');
+          });
+        });
+      });
+    });
+  }
+
+  document.addEventListener('astro:page-load', initStatsMatrix);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initStatsMatrix);
+  } else {
+    initStatsMatrix();
+  }
+</script>

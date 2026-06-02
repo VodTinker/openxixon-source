@@ -1,0 +1,1686 @@
+---
+import Layout from '../layouts/Layout.astro'
+
+
+// Página 100% estática — se prerenderiza en build y se sirve cacheada desde el edge.
+export const prerender = true
+
+// ── Pixel art decorations (misma técnica que precios/footer) ──
+const UNIT = 10
+const INSET = 1
+
+type Px = { x: number; y: number; tone: 'base' | 'alt' | 'hi' }
+
+function pixelCluster(cols: number, rows: number, density: number, seed: number): Px[] {
+  const out: Px[] = []
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const n = ((x * 73 + y * 127 + seed * 11 + x * y * 3) % 23) / 23
+      if (n > density) continue
+      const t = (x * 31 + y * 17 + seed * 7) % 9
+      const tone: Px['tone'] = t === 0 ? 'hi' : t < 4 ? 'alt' : 'base'
+      out.push({ x, y, tone })
+    }
+  }
+  return out
+}
+
+function pixelBurst(cols: number, rows: number, seed: number): Px[] {
+  const out: Px[] = []
+  const cx = cols / 2
+  const cy = rows / 2
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const dx = (x - cx) / cx
+      const dy = (y - cy) / cy
+      const d = Math.sqrt(dx * dx + dy * dy)
+      const n = ((x * 61 + y * 89 + seed) % 19) / 19
+      if (d + n * 0.4 > 0.9) continue
+      const skip = ((x * 13 + y * 7) % 5)
+      if (skip === 0) continue
+      const t = (x * 31 + y * 17 + seed * 3) % 11
+      const tone: Px['tone'] = t === 0 ? 'hi' : t < 4 ? 'alt' : 'base'
+      out.push({ x, y, tone })
+    }
+  }
+  return out
+}
+
+// Pixel art chevron 5x5 para sidebar
+const chevron: Px[] = [
+  [1,0,0,0,0],
+  [0,1,0,0,0],
+  [0,0,1,0,0],
+  [0,1,0,0,0],
+  [1,0,0,0,0],
+].flatMap((row, y) =>
+  row.map((cell, x) => ({ x, y, tone: 'hi' as const, on: cell === 1 }))
+).filter(p => p.on).map(({ x, y, tone }) => ({ x, y, tone }))
+
+const heroPx = pixelBurst(14, 18, 33)
+const heroPx2 = pixelCluster(6, 10, 0.4, 66)
+
+const HERO_W = 14 * UNIT
+const HERO_H = 18 * UNIT
+const HERO2_W = 6 * UNIT
+const HERO2_H = 10 * UNIT
+
+// ── Pixel Art Font Logic (for "API REST") ──
+const PIXEL_FONT: Record<string, string[]> = {
+  A: ['01110','10001','10001','11111','10001','10001','10001'],
+  P: ['11110','10001','10001','11110','10000','10000','10000'],
+  I: ['11111','00100','00100','00100','00100','00100','11111'],
+  R: ['11110','10001','10001','11110','10100','10010','10001'],
+  E: ['11111','10000','10000','11110','10000','10000','11111'],
+  S: ['01111','10000','10000','01110','00001','00001','11110'],
+  T: ['11111','00100','00100','00100','00100','00100','00100'],
+  ' ': ['000','000','000','000','000','000','000']
+}
+
+function generatePixelText(text: string, seed: number) {
+  const pixels: Px[] = []
+  const charW = 5
+  const charH = 7
+  const gap = 1
+  
+  text.split('').forEach((ch, i) => {
+    const glyph = PIXEL_FONT[ch]
+    if (!glyph) return
+    const xOff = i * (charW + gap)
+    glyph.forEach((row, r) => {
+      row.split('').forEach((cell, c) => {
+        if (cell === '1') {
+          const x = xOff + c
+          const y = r
+          const pSeed = (x * 7 + y * 13 + i * 3 + seed) % 11
+          const tone: Px['tone'] = pSeed === 0 ? 'hi' : pSeed < 3 ? 'alt' : 'base'
+          pixels.push({ x, y, tone })
+        }
+      })
+    })
+  })
+  
+  const width = text.length * (charW + gap) - gap
+  const height = charH
+  return { pixels, width, height }
+}
+
+const titlePx = generatePixelText('API REST', 42)
+const T_UNIT = 8
+const T_W = titlePx.width * T_UNIT
+const T_H = titlePx.height * T_UNIT
+
+// Pixel art divider pattern — repeating blocks
+function pixelDivider(cols: number, seed: number): Px[] {
+  const out: Px[] = []
+  for (let x = 0; x < cols; x++) {
+    const n = ((x * 37 + seed * 13) % 7) / 7
+    if (n > 0.55) continue
+    const t = (x * 19 + seed) % 7
+    const tone: Px['tone'] = t === 0 ? 'hi' : t < 3 ? 'alt' : 'base'
+    out.push({ x, y: 0, tone })
+  }
+  return out
+}
+
+const divPx = pixelDivider(80, 42)
+const DIV_W = 80 * UNIT
+---
+
+<Layout title="API Reference">
+  <div class="docs-page">
+
+    <div class="docs-container container">
+      <div class="docs-layout">
+        <!-- Sidebar Nav -->
+        <aside class="docs-sidebar">
+          <div class="sidebar-sticky">
+            <div class="sidebar-section animate-up delay-1">
+              <h4 class="sidebar-title">
+                <span class="sidebar-px-marker" aria-hidden="true">►</span>
+                Empieza Aquí
+              </h4>
+              <nav class="sidebar-nav">
+                <a href="#intro" class="active">Introducción</a>
+                <a href="#auth">Autenticación</a>
+                <a href="#limites">Límites de Uso</a>
+                <a href="#errores">Errores HTTP</a>
+              </nav>
+            </div>
+            <div class="sidebar-section animate-up delay-2">
+              <h4 class="sidebar-title">
+                <span class="sidebar-px-marker" aria-hidden="true">►</span>
+                Endpoints
+              </h4>
+              <nav class="sidebar-nav">
+                <a href="#aire">Calidad del Aire</a>
+                <a href="#incidencias">Incidencias</a>
+                <a href="#multas">Multas de Tráfico</a>
+                <a href="#poblacion">Población</a>
+                <a href="#inversiones">Inversiones</a>
+                <a href="#status">Estado del sistema</a>
+              </nav>
+            </div>
+            <div class="sidebar-section animate-up delay-3">
+              <h4 class="sidebar-title">
+                <span class="sidebar-px-marker" aria-hidden="true">►</span>
+                Integraciones
+              </h4>
+              <nav class="sidebar-nav">
+                <a href="#claude-code">Claude Code</a>
+                <a href="#powerbi">Power BI</a>
+                <a href="#python">Python (Pandas)</a>
+              </nav>
+            </div>
+
+            <!-- Sidebar pixel decoration -->
+            <div class="sidebar-px-deco" aria-hidden="true">
+              <svg viewBox={`0 0 ${HERO2_W} ${HERO2_H}`} width={HERO2_W} height={HERO2_H}>
+                {heroPx2.map(p => (
+                  <rect
+                    class:list={['hpx', `hpx-${p.tone}`]}
+                    x={p.x * UNIT + INSET} y={p.y * UNIT + INSET}
+                    width={UNIT - INSET * 2} height={UNIT - INSET * 2}
+                  />
+                ))}
+              </svg>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="docs-main">
+          <header class="docs-header animate-up">
+            <!-- Pixel art hero decoration -->
+            <div class="docs-hero-px" aria-hidden="true">
+              <svg class="docs-hero-svg" viewBox={`0 0 ${HERO_W} ${HERO_H}`} width={HERO_W} height={HERO_H}>
+                {heroPx.map(p => (
+                  <rect
+                    class:list={['hpx', `hpx-${p.tone}`]}
+                    x={p.x * UNIT + INSET} y={p.y * UNIT + INSET}
+                    width={UNIT - INSET * 2} height={UNIT - INSET * 2}
+                  />
+                ))}
+              </svg>
+            </div>
+
+            <div class="docs-header-window">
+              <div class="docs-window-bar">
+                <span class="px-dot"></span><span class="px-dot"></span><span class="px-dot"></span>
+                <span class="docs-window-title mono">_DOCS/API_REST_v1.0</span>
+              </div>
+              <div class="docs-window-content">
+                <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom: 1rem;">
+                  <div class="badge badge-accent" style="box-shadow: 3px 3px 0px var(--border);">API Reference</div>
+                </div>
+                <div class="docs-title-px-wrap">
+                  <svg class="docs-title-px" viewBox={`0 0 ${T_W} ${T_H}`} width={T_W} height={T_H} aria-label="API REST" shape-rendering="crispEdges">
+                    {/* Shadow layer - solid blocks, no transparency for sharpness */}
+                    {titlePx.pixels.map(p => (
+                      <rect
+                        x={p.x * T_UNIT + 4} y={p.y * T_UNIT + 4}
+                        width={T_UNIT} height={T_UNIT}
+                        fill="var(--accent-strong)"
+                        opacity="0.25"
+                      />
+                    ))}
+                    {/* Main layer - pixels touch each other now for a solid font feel */}
+                    {titlePx.pixels.map(p => (
+                      <rect
+                        class:list={['hpx', `hpx-${p.tone}`]}
+                        x={p.x * T_UNIT} y={p.y * T_UNIT}
+                        width={T_UNIT} height={T_UNIT}
+                      />
+                    ))}
+                  </svg>
+                </div>
+                <p class="docs-lead mt-4">
+                  Integra los datos abiertos del Ayuntamiento de Gijón en tus aplicaciones con nuestra API moderna, predecible y orientada a recursos.
+                </p>
+              </div>
+            </div>
+          </header>
+
+        <div class="docs-content">
+          <!-- Introduccion -->
+          <section id="intro" class="doc-section animate-up delay-1">
+            <h2>Introducción</h2>
+            <p>
+              La API de OpenXixón está organizada en torno a REST. Usamos URLs predecibles, aceptamos requests en formato estándar y devolvemos respuestas en <code>JSON</code>. Todos los endpoints se sirven sobre HTTPS para garantizar la privacidad y seguridad de los datos.
+            </p>
+            <div class="endpoint-url mt-4" style="max-width: max-content; margin-bottom: 0;">
+              <span class="method neutral">BASE URL</span>
+              <code class="url-path">https://openxixon.vodtinker.dev/api</code>
+            </div>
+          </section>
+
+          <hr class="divider animate-up delay-1" />
+
+          <!-- Autenticacion -->
+          <section id="auth" class="doc-section animate-up delay-2">
+            <div class="endpoint-grid">
+              <div class="endpoint-info">
+                <h2>Autenticación</h2>
+                <p>
+                  El acceso a la API requiere autenticación mediante Bearer token. Debes incluir tu API Key secreta en el header <code>Authorization</code> de cada petición HTTP.
+                </p>
+                <div class="alert card">
+                  <div class="alert-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                  </div>
+                  <div class="alert-content">
+                    <strong>Cuenta obligatoria</strong>
+                    <p>Necesitas una cuenta y tu API key para usar la API. El plan Free incluye 100 req/día.</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="endpoint-demo">
+                <div class="code-window">
+                  <div class="code-header">
+                    <div class="window-controls">
+                      <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+                    </div>
+                    <span class="code-title">Header</span>
+                    <button class="btn-copy" type="button" aria-label="Copiar al portapapeles"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6h12v2H8zM4 2h12v2H4zm2 6h2v12H6zM2 4h2v12H2zm6 16h12v2H8zM20 8h2v12h-2zm-4-4h2v2h-2zM4 16h2v2H4z"/></svg></button>
+                  </div>
+                  <pre class="code-block mono"><code>Authorization: Bearer <span class="c-accent">ox_live_xxxxxxxxxxxxx</span></code></pre>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <hr class="divider animate-up delay-2" />
+
+          <!-- Límites -->
+          <section id="limites" class="doc-section animate-up delay-2">
+            <h2>Límites de Uso (Rate Limiting)</h2>
+            <p>Para garantizar la estabilidad del servicio, la API impone límites en el número de peticiones que puedes realizar dependiendo de tu plan.</p>
+            
+            <div class="table-wrap mt-4">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Plan</th>
+                    <th>Rate Limit</th>
+                    <th>Histórico</th>
+                    <th>Soporte</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="badge badge-free">Free (Anónimo)</span></td>
+                    <td class="mono">100 / día</td>
+                    <td>30 días</td>
+                    <td>Comunidad</td>
+                  </tr>
+                  <tr>
+                    <td><span class="badge badge-pro">Pro</span></td>
+                    <td class="mono">10.000 / día</td>
+                    <td>Ilimitado</td>
+                    <td>Email</td>
+                  </tr>
+                  <tr>
+                    <td><span class="badge badge-accent">Enterprise</span></td>
+                    <td class="mono">Ilimitado</td>
+                    <td>Ilimitado</td>
+                    <td>SLA 99.9%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <div class="card mt-4" style="background:var(--bg-1);">
+              <h4 class="text-sm mb-2">Headers de Rate Limit</h4>
+              <p class="text-sm text-dim">Cada respuesta HTTP incluye cabeceras que indican tu estado actual en la ventana de tiempo (24h):</p>
+              <ul class="header-list">
+                <li><code>X-RateLimit-Limit</code>: Límite de peticiones de tu plan.</li>
+                <li><code>X-RateLimit-Remaining</code>: Peticiones restantes en la ventana actual.</li>
+                <li><code>X-RateLimit-Reset</code>: Timestamp (UNIX) cuando se reiniciará el contador.</li>
+              </ul>
+            </div>
+          </section>
+
+          <hr class="divider" />
+
+          <!-- Errores -->
+          <section id="errores" class="doc-section animate-up delay-2">
+            <div class="endpoint-grid">
+              <div class="endpoint-info">
+                <h2>Códigos de Error</h2>
+                <p>OpenXixón utiliza códigos de estado HTTP convencionales para indicar el éxito o fracaso de una petición. En caso de error, siempre devolvemos un objeto JSON con el detalle.</p>
+                <ul class="header-list mt-4">
+                  <li><code style="color: var(--amber);">400 Bad Request</code> - Parámetros inválidos.</li>
+                  <li><code style="color: var(--brick);">401 Unauthorized</code> - Falta API Key o es inválida.</li>
+                  <li><code style="color: var(--amber);">404 Not Found</code> - El recurso o endpoint no existe.</li>
+                  <li><code style="color: var(--brick);">429 Too Many Requests</code> - Has superado tu límite.</li>
+                  <li><code style="color: var(--brick);">500 Server Error</code> - Algo falló por nuestra parte.</li>
+                </ul>
+              </div>
+              <div class="endpoint-demo">
+                <div class="code-window">
+                  <div class="code-header">
+                    <div class="window-controls">
+                      <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+                    </div>
+                    <span class="code-title">Error Response</span>
+                    <button class="btn-copy" type="button" aria-label="Copiar al portapapeles"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6h12v2H8zM4 2h12v2H4zm2 6h2v12H6zM2 4h2v12H2zm6 16h12v2H8zM20 8h2v12h-2zm-4-4h2v2h-2zM4 16h2v2H4z"/></svg></button>
+                  </div>
+                  <pre class="code-block mono"><code>{`{
+  "error": "Rate limit exceeded",
+  "code": 429,
+  "message": "Has superado el límite de 100 peticiones."
+}`}</code></pre>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <hr class="divider" />
+
+          <!-- Calidad del Aire -->
+          <section id="aire" class="doc-section animate-up delay-3">
+            <div class="endpoint-grid">
+              <div class="endpoint-info">
+                <h2>Calidad del Aire</h2>
+                <p>Mediciones horarias de los sensores de contaminación atmosférica de la ciudad. Devuelve hasta 500 registros ordenados por fecha descendente. La ventana histórica depende del plan.</p>
+
+                <div class="alert card" style="margin-top:1rem;">
+                  <div class="alert-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                  </div>
+                  <div class="alert-content">
+                    <strong>Sin parámetros de filtro</strong>
+                    <p>Este endpoint no acepta query params. La ventana de datos (30 días Free / completa Pro) la controla tu plan automáticamente.</p>
+                  </div>
+                </div>
+
+                <h4 class="params-title">Campos de respuesta</h4>
+                <div class="param-list">
+                  <div class="param-item">
+                    <div class="param-header"><code class="param-name">estacion</code><span class="param-type">integer</span></div>
+                    <div class="param-desc">ID numérico de la estación de medición.</div>
+                  </div>
+                  <div class="param-item">
+                    <div class="param-header"><code class="param-name">no2, o3, pm10, pm25, co</code><span class="param-type">float</span></div>
+                    <div class="param-desc">Concentraciones en µg/m³ (CO en mg/m³). Pueden ser <code>null</code> si el sensor no midió ese contaminante.</div>
+                  </div>
+                  <div class="param-item">
+                    <div class="param-header"><code class="param-name">latitud, longitud</code><span class="param-type">float</span></div>
+                    <div class="param-desc">Coordenadas geográficas de la estación.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="endpoint-demo">
+                <div class="endpoint-url">
+                  <span class="method get">GET</span>
+                  <code class="url-path">/api/aire</code>
+                </div>
+                
+                <div class="code-group">
+                  <div class="code-window">
+                    <div class="code-header">
+                      <span class="code-title">cURL Request</span>
+                    <button class="btn-copy" type="button" aria-label="Copiar al portapapeles"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6h12v2H8zM4 2h12v2H4zm2 6h2v12H6zM2 4h2v12H2zm6 16h12v2H8zM20 8h2v12h-2zm-4-4h2v2h-2zM4 16h2v2H4z"/></svg></button>
+                    </div>
+                    <pre class="code-block mono"><code>curl -X GET "https://openxixon.vodtinker.dev/api/aire" \
+  -H "Authorization: Bearer ox_live_..."</code></pre>
+                  </div>
+
+                  <div class="code-window mt-2">
+                    <div class="code-header">
+                      <span class="code-title">Response</span>
+                    <button class="btn-copy" type="button" aria-label="Copiar al portapapeles"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6h12v2H8zM4 2h12v2H4zm2 6h2v12H6zM2 4h2v12H2zm6 16h12v2H8zM20 8h2v12h-2zm-4-4h2v2h-2zM4 16h2v2H4z"/></svg></button>
+                      <span class="status-code success">200 OK</span>
+                    </div>
+                    <pre class="code-block mono"><code>{`[
+  {
+    "estacion": 1,
+    "fecha": "2026-04-20T08:00:00Z",
+    "no2": 32,
+    "o3": 45,
+    "pm10": 18.5,
+    "pm25": 10.2,
+    "co": 0.4
+  }
+]`}</code></pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <hr class="divider" />
+
+          <!-- Incidencias -->
+          <section id="incidencias" class="doc-section">
+            <div class="endpoint-grid">
+              <div class="endpoint-info">
+                <h2>Incidencias Urbanas</h2>
+                <p>Avisos e incidencias registradas en la ciudad: baches, alumbrado, mobiliario urbano, limpieza, etc. Datos actualizados diariamente.</p>
+
+                <h4 class="params-title">Query Parameters</h4>
+                <div class="param-list">
+                  <div class="param-item">
+                    <div class="param-header">
+                      <code class="param-name">tipo</code>
+                      <span class="param-type">string</span>
+                      <span class="param-optional">opcional</span>
+                    </div>
+                    <div class="param-desc">Filtra por categoría de incidencia (ej: <code>Baches</code>, <code>Alumbrado</code>, <code>Limpieza</code>).</div>
+                  </div>
+                  <div class="param-item">
+                    <div class="param-header">
+                      <code class="param-name">estado</code>
+                      <span class="param-type">string</span>
+                      <span class="param-optional">opcional</span>
+                    </div>
+                    <div class="param-desc">Filtra por estado de resolución (ej: <code>Pendiente</code>, <code>Resuelta</code>).</div>
+                  </div>
+                  <div class="param-item">
+                    <div class="param-header">
+                      <code class="param-name">limit</code>
+                      <span class="param-type">integer</span>
+                      <span class="param-default">default: 500, max: 1000</span>
+                    </div>
+                    <div class="param-desc">Número máximo de registros a devolver.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="endpoint-demo">
+                <div class="endpoint-url">
+                  <span class="method get">GET</span>
+                  <code class="url-path">/api/incidencias</code>
+                </div>
+                <div class="code-group">
+                  <div class="code-window">
+                    <div class="code-header">
+                      <span class="code-title">cURL Request</span>
+                      <button class="btn-copy" type="button" aria-label="Copiar al portapapeles"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6h12v2H8zM4 2h12v2H4zm2 6h2v12H6zM2 4h2v12H2zm6 16h12v2H8zM20 8h2v12h-2zm-4-4h2v2h-2zM4 16h2v2H4z"/></svg></button>
+                    </div>
+                    <pre class="code-block mono"><code>curl "https://openxixon.vodtinker.dev/api/incidencias?tipo=Baches&limit=50" \
+  -H "Authorization: Bearer ox_live_..."</code></pre>
+                  </div>
+                  <div class="code-window mt-2">
+                    <div class="code-header">
+                      <span class="code-title">Response</span>
+                      <button class="btn-copy" type="button" aria-label="Copiar al portapapeles"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6h12v2H8zM4 2h12v2H4zm2 6h2v12H6zM2 4h2v12H2zm6 16h12v2H8zM20 8h2v12h-2zm-4-4h2v2h-2zM4 16h2v2H4z"/></svg></button>
+                      <span class="status-code success">200 OK</span>
+                    </div>
+                    <pre class="code-block mono"><code>{`[
+  {
+    "fecha": "2026-04-20",
+    "tipo": "Baches",
+    "estado": "Pendiente",
+    "descripcion": "Socavón en calzada",
+    "barrio": "El Natahoyo"
+  }
+]`}</code></pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <hr class="divider" />
+
+          <!-- Multas -->
+          <section id="multas" class="doc-section">
+            <div class="endpoint-grid">
+              <div class="endpoint-info">
+                <h2>Multas de Tráfico</h2>
+                <p>Estadísticas agregadas de denuncias de tráfico por año, mes y calificación de la infracción. Los datos son agregados mensuales, no registros individuales.</p>
+
+                <h4 class="params-title">Query Parameters</h4>
+                <div class="param-list">
+                  <div class="param-item">
+                    <div class="param-header">
+                      <code class="param-name">anio</code>
+                      <span class="param-type">integer</span>
+                      <span class="param-optional">opcional</span>
+                    </div>
+                    <div class="param-desc">Filtra por año (ej: <code>2024</code>).</div>
+                  </div>
+                  <div class="param-item">
+                    <div class="param-header">
+                      <code class="param-name">calificacion</code>
+                      <span class="param-type">string</span>
+                      <span class="param-optional">opcional</span>
+                    </div>
+                    <div class="param-desc">Filtra por gravedad: <code>Leve</code>, <code>Grave</code>, <code>Muy grave</code>.</div>
+                  </div>
+                  <div class="param-item">
+                    <div class="param-header">
+                      <code class="param-name">limit</code>
+                      <span class="param-type">integer</span>
+                      <span class="param-default">default: 500, max: 1000</span>
+                    </div>
+                    <div class="param-desc">Número máximo de registros a devolver.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="endpoint-demo">
+                <div class="endpoint-url">
+                  <span class="method get">GET</span>
+                  <code class="url-path">/api/multas</code>
+                </div>
+                <div class="code-group">
+                  <div class="code-window">
+                    <div class="code-header">
+                      <span class="code-title">cURL Request</span>
+                      <button class="btn-copy" type="button" aria-label="Copiar al portapapeles"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6h12v2H8zM4 2h12v2H4zm2 6h2v12H6zM2 4h2v12H2zm6 16h12v2H8zM20 8h2v12h-2zm-4-4h2v2h-2zM4 16h2v2H4z"/></svg></button>
+                    </div>
+                    <pre class="code-block mono"><code>curl "https://openxixon.vodtinker.dev/api/multas?anio=2024" \
+  -H "Authorization: Bearer ox_live_..."</code></pre>
+                  </div>
+                  <div class="code-window mt-2">
+                    <div class="code-header">
+                      <span class="code-title">Response</span>
+                      <button class="btn-copy" type="button" aria-label="Copiar al portapapeles"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6h12v2H8zM4 2h12v2H4zm2 6h2v12H6zM2 4h2v12H2zm6 16h12v2H8zM20 8h2v12h-2zm-4-4h2v2h-2zM4 16h2v2H4z"/></svg></button>
+                      <span class="status-code success">200 OK</span>
+                    </div>
+                    <pre class="code-block mono"><code>{`[
+  {
+    "anio": 2024,
+    "mes": "Enero",
+    "calificacion": "Grave",
+    "denuncias": 312
+  }
+]`}</code></pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <hr class="divider" />
+
+          <!-- Población -->
+          <section id="poblacion" class="doc-section">
+            <div class="endpoint-grid">
+              <div class="endpoint-info">
+                <h2>Población</h2>
+                <p>Datos del padrón municipal de Gijón: pirámide de edad, distribución por sexo e histórico de crecimiento. Con <code>barrios=1</code> devuelve la desglose por barrios en vez de el total municipal.</p>
+
+                <h4 class="params-title">Query Parameters</h4>
+                <div class="param-list">
+                  <div class="param-item">
+                    <div class="param-header">
+                      <code class="param-name">barrios</code>
+                      <span class="param-type">integer</span>
+                      <span class="param-optional">opcional</span>
+                    </div>
+                    <div class="param-desc">Pasa <code>barrios=1</code> para obtener datos desglosados por barrio en vez del agregado municipal.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="endpoint-demo">
+                <div class="endpoint-url">
+                  <span class="method get">GET</span>
+                  <code class="url-path">/api/poblacion</code>
+                </div>
+                <div class="code-group">
+                  <div class="code-window">
+                    <div class="code-header">
+                      <span class="code-title">cURL Request</span>
+                      <button class="btn-copy" type="button" aria-label="Copiar al portapapeles"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6h12v2H8zM4 2h12v2H4zm2 6h2v12H6zM2 4h2v12H2zm6 16h12v2H8zM20 8h2v12h-2zm-4-4h2v2h-2zM4 16h2v2H4z"/></svg></button>
+                    </div>
+                    <pre class="code-block mono"><code>curl "https://openxixon.vodtinker.dev/api/poblacion?barrios=1" \
+  -H "Authorization: Bearer ox_live_..."</code></pre>
+                  </div>
+                  <div class="code-window mt-2">
+                    <div class="code-header">
+                      <span class="code-title">Response</span>
+                      <button class="btn-copy" type="button" aria-label="Copiar al portapapeles"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6h12v2H8zM4 2h12v2H4zm2 6h2v12H6zM2 4h2v12H2zm6 16h12v2H8zM20 8h2v12h-2zm-4-4h2v2h-2zM4 16h2v2H4z"/></svg></button>
+                      <span class="status-code success">200 OK</span>
+                    </div>
+                    <pre class="code-block mono"><code>{`[
+  {
+    "fecha": "2026-01-01",
+    "barrio": "El Natahoyo",
+    "total": 8420,
+    "hombres": 4110,
+    "mujeres": 4310
+  }
+]`}</code></pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <hr class="divider" />
+
+          <!-- Inversiones -->
+          <section id="inversiones" class="doc-section">
+            <div class="endpoint-grid">
+              <div class="endpoint-info">
+                <h2>Inversiones</h2>
+                <p>Obras, contratos y proyectos del Ayuntamiento de Gijón y entidades dependientes (EMULSA, EMASA, FMCEUP). Incluye importes presupuestados, adjudicación, fechas y geolocalización.</p>
+
+                <h4 class="params-title">Query Parameters</h4>
+                <div class="param-list">
+                  <div class="param-item">
+                    <div class="param-header">
+                      <code class="param-name">estado</code>
+                      <span class="param-type">string</span>
+                      <span class="param-default">opcional</span>
+                    </div>
+                    <div class="param-desc">Filtra por estado: <code>Finalización</code>, <code>Ejecución</code>, <code>Adjudicación</code>, <code>Licitación</code>, <code>Aprobación</code>, <code>Paralización</code>.</div>
+                  </div>
+                  <div class="param-item">
+                    <div class="param-header">
+                      <code class="param-name">entidad</code>
+                      <span class="param-type">string</span>
+                      <span class="param-default">opcional</span>
+                    </div>
+                    <div class="param-desc">Filtra por entidad: <code>AYTO</code>, <code>EMULSA</code>, <code>EMASA</code>, <code>CMESA</code>.</div>
+                  </div>
+                  <div class="param-item">
+                    <div class="param-header">
+                      <code class="param-name">limit</code>
+                      <span class="param-type">number</span>
+                      <span class="param-default">default: 200, max: 1000</span>
+                    </div>
+                    <div class="param-desc">Número máximo de registros a devolver.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="endpoint-demo">
+                <div class="endpoint-url">
+                  <span class="method get">GET</span>
+                  <code class="url-path">/api/inversiones</code>
+                </div>
+              </div>
+            </div>
+          </section>
+
+
+
+          <hr class="divider" />
+
+          <!-- Status -->
+          <section id="status" class="doc-section">
+            <div class="endpoint-grid">
+              <div class="endpoint-info">
+                <h2>Estado del sistema</h2>
+                <p>Estado operativo en tiempo real de todos los datasets y endpoints. No requiere autenticación. Útil para health checks e integraciones de monitoreo.</p>
+
+                <div class="alert card" style="margin-top:1rem;">
+                  <div class="alert-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                  </div>
+                  <div class="alert-content">
+                    <strong>Público — sin API Key</strong>
+                    <p>Este endpoint no requiere header <code>Authorization</code>. Cacheado 30 s en el edge.</p>
+                  </div>
+                </div>
+
+                <h4 class="params-title">Campos de respuesta</h4>
+                <div class="param-list">
+                  <div class="param-item">
+                    <div class="param-header"><code class="param-name">overall</code><span class="param-type">string</span></div>
+                    <div class="param-desc"><code>"operational"</code> si todos los servicios están ok, <code>"degraded"</code> si alguno falla.</div>
+                  </div>
+                  <div class="param-item">
+                    <div class="param-header"><code class="param-name">datasets</code><span class="param-type">array</span></div>
+                    <div class="param-desc">Estado por dataset: <code>name</code>, <code>status</code> (<code>ok</code> / <code>error</code>), <code>latency</code> (ms), <code>uptime7d</code> (%).</div>
+                  </div>
+                  <div class="param-item">
+                    <div class="param-header"><code class="param-name">endpoints</code><span class="param-type">array</span></div>
+                    <div class="param-desc">Estado por endpoint REST: <code>name</code>, <code>status</code>, <code>code</code> HTTP, <code>latency</code> (ms).</div>
+                  </div>
+                  <div class="param-item">
+                    <div class="param-header"><code class="param-name">incidents</code><span class="param-type">array</span></div>
+                    <div class="param-desc">Incidentes detectados en los últimos 30 días con <code>start</code>, <code>end</code>, <code>durationMin</code> y servicios afectados.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="endpoint-demo">
+                <div class="endpoint-url">
+                  <span class="method get">GET</span>
+                  <code class="url-path">/api/status</code>
+                </div>
+                <div class="code-group">
+                  <div class="code-window">
+                    <div class="code-header">
+                      <span class="code-title">cURL Request</span>
+                      <button class="btn-copy" type="button" aria-label="Copiar al portapapeles"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6h12v2H8zM4 2h12v2H4zm2 6h2v12H6zM2 4h2v12H2zm6 16h12v2H8zM20 8h2v12h-2zm-4-4h2v2h-2zM4 16h2v2H4z"/></svg></button>
+                    </div>
+                    <pre class="code-block mono"><code>curl "https://openxixon.vodtinker.dev/api/status"</code></pre>
+                  </div>
+                  <div class="code-window mt-2">
+                    <div class="code-header">
+                      <span class="code-title">Response</span>
+                      <button class="btn-copy" type="button" aria-label="Copiar al portapapeles"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6h12v2H8zM4 2h12v2H4zm2 6h2v12H6zM2 4h2v12H2zm6 16h12v2H8zM20 8h2v12h-2zm-4-4h2v2h-2zM4 16h2v2H4z"/></svg></button>
+                      <span class="status-code success">200 OK</span>
+                    </div>
+                    <pre class="code-block mono"><code>{`{
+  "ts": "2026-04-28T19:28:01Z",
+  "overall": "operational",
+  "datasets": [
+    {
+      "name": "Calidad del Aire",
+      "status": "ok",
+      "latency": 121,
+      "uptime7d": 99.9
+    }
+  ],
+  "endpoints": [...],
+  "incidents": []
+}`}</code></pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <hr class="divider" />
+
+          <!-- Claude Code -->
+          <section id="claude-code" class="doc-section">
+            <div class="endpoint-grid">
+              <div class="endpoint-info">
+                <h2>Claude Code & Cursor</h2>
+                <p>Nuestra API tiene URLs semánticas y respuestas JSON predecibles, lo que la hace ideal para integrarla rápidamente a través de agentes de IA y asistentes de programación (como Claude, Cursor o GitHub Copilot).</p>
+                <div class="card mt-4" style="background:var(--bg-1);">
+                  <h4 class="text-sm mb-2">💡 Tip para Agentes</h4>
+                  <p class="text-sm text-dim">
+                    Puedes pedirle a tu agente que consuma nuestra API directamente dándole tu API Key. Los modelos de lenguaje modernos pueden deducir y parsear la estructura de los datos sin necesidad de esquemas OpenAPI complejos.
+                  </p>
+                </div>
+              </div>
+
+              <div class="endpoint-demo">
+                <div class="code-window">
+                  <div class="code-header">
+                    <span class="code-title">Prompt de Ejemplo</span>
+                    <button class="btn-copy" type="button" aria-label="Copiar al portapapeles"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6h12v2H8zM4 2h12v2H4zm2 6h2v12H6zM2 4h2v12H2zm6 16h12v2H8zM20 8h2v12h-2zm-4-4h2v2h-2zM4 16h2v2H4z"/></svg></button>
+                  </div>
+                  <pre class="code-block mono" style="white-space: pre-wrap; color: var(--text-dim); background: var(--surface);"><code>Escribe un script de Python que se conecte a la API de OpenXixón (https://openxixon.vodtinker.dev/api/aire).
+
+Usa este API Key en el header Authorization: Bearer TU_API_KEY
+
+El script debe encontrar la estación con la mayor concentración de PM10 y generar un gráfico de barras guardándolo como 'aire.png'.</code></pre>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <hr class="divider" />
+
+          <!-- Power BI -->
+          <section id="powerbi" class="doc-section">
+            <div class="endpoint-grid">
+              <div class="endpoint-info">
+                <h2>Power BI & Excel</h2>
+                <p>Importa los datos cívicos directamente a tus herramientas de Business Intelligence favoritas sin necesidad de programar, conectando la API como fuente web.</p>
+                
+                <h4 class="params-title">Pasos para Power BI</h4>
+                <ol class="header-list" style="margin-top:0.5rem; list-style-type: decimal; padding-left: 1.25rem;">
+                  <li>Ve a <strong>Obtener datos</strong> &gt; <strong>Web</strong>.</li>
+                  <li>Selecciona la opción <strong>Uso avanzado</strong>.</li>
+                  <li>En partes de URL, introduce el endpoint (ej: <code>https://openxixon.vodtinker.dev/api/inversiones</code>).</li>
+                  <li>En "Parámetros de encabezado de solicitud HTTP", añade:<br><br>
+                    <table style="font-size:0.75rem; background:var(--surface); border:2px solid var(--border); box-shadow: 4px 4px 0px var(--border); width:100%; text-align: left;">
+                      <tr><th style="padding:0.25rem 0.5rem; border-bottom:2px solid var(--border);">Clave</th><th style="padding:0.25rem 0.5rem; border-bottom:2px solid var(--border);">Valor</th></tr>
+                      <tr><td style="padding:0.4rem 0.5rem; font-weight:600;">Authorization</td><td style="padding:0.4rem 0.5rem;" class="mono">Bearer TU_API_KEY</td></tr>
+                    </table>
+                  </li>
+                  <li class="mt-2">Haz clic en <strong>Aceptar</strong> y usa Power Query para expandir los registros en una tabla.</li>
+                </ol>
+              </div>
+
+              <div class="endpoint-demo">
+                <div class="card" style="padding:0; overflow:hidden; background:var(--surface-2);">
+                  <div style="padding: 1rem; border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: 0.5rem; background: var(--bg);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+                    <span style="font-weight: 600; font-size: 0.875rem;">Dashboard de Gijón</span>
+                  </div>
+                  <div style="padding: 2rem; display: grid; gap: 1rem; grid-template-columns: 1fr 1fr;">
+                    <div style="height: 80px; background: rgba(103,66,236,0.1); border-radius: 0; border: 2px dashed var(--accent-dim);"></div>
+                    <div style="height: 80px; background: rgba(16, 185, 129, 0.1); border-radius: 0; border: 2px dashed rgba(16, 185, 129, 0.3);"></div>
+                    <div style="grid-column: 1 / -1; height: 120px; background: var(--surface); border-radius: 0; border: 2px solid var(--border-mid); position:relative; overflow:hidden;">
+                       <div style="position:absolute; bottom:0; left:10%; width:10%; height:40%; background:var(--accent-glow);"></div>
+                       <div style="position:absolute; bottom:0; left:30%; width:10%; height:70%; background:var(--accent-glow);"></div>
+                       <div style="position:absolute; bottom:0; left:50%; width:10%; height:50%; background:var(--accent-glow);"></div>
+                       <div style="position:absolute; bottom:0; left:70%; width:10%; height:90%; background:var(--accent-glow);"></div>
+                    </div>
+                  </div>
+                </div>
+                <p class="text-sm text-muted mt-3 text-center">Esquema visual de Power BI integrado</p>
+              </div>
+            </div>
+          </section>
+
+          <hr class="divider" />
+
+          <!-- Python Pandas -->
+          <section id="python" class="doc-section">
+            <div class="endpoint-grid">
+              <div class="endpoint-info">
+                <h2>Data Science con Python</h2>
+                <p>La integración con el ecosistema de Python es la forma más potente de procesar datos masivos. Usa bibliotecas estándar como <code>requests</code> y <code>pandas</code> para ingestar y transformar la información del ayuntamiento en tus libretas de Jupyter.</p>
+              </div>
+
+              <div class="endpoint-demo">
+                <div class="code-window">
+                  <div class="code-header">
+                    <div class="window-controls">
+                      <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+                    </div>
+                    <span class="code-title">Python (Pandas)</span>
+                    <button class="btn-copy" type="button" aria-label="Copiar al portapapeles"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M8 6h12v2H8zM4 2h12v2H4zm2 6h2v12H6zM2 4h2v12H2zm6 16h12v2H8zM20 8h2v12h-2zm-4-4h2v2h-2zM4 16h2v2H4z"/></svg></button>
+                  </div>
+                  <pre class="code-block mono"><code>{`import requests
+import pandas as pd
+
+url = "https://openxixon.vodtinker.dev/api/poblacion"
+headers = {"Authorization": "Bearer ox_live_..."}
+
+response = requests.get(url, headers=headers)
+data = response.json()
+
+# Cargar directamente a un DataFrame
+df = pd.DataFrame(data)
+
+# Analizar la edad media agrupada
+print(df.groupby('barrio')['edad'].mean())`}</code></pre>
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+        </main>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  // ── Scrollspy: sidebar resalta la sección visible ──
+  // Re-inicializa en cada navegación SPA (astro:page-load) y desconecta antes
+  // del swap para evitar fugas de memoria al cambiar de página.
+  let docsObserver: IntersectionObserver | null = null
+
+  function initDocsScrollspy() {
+    const sections = document.querySelectorAll('.docs-main section[id]')
+    const navLinks = document.querySelectorAll<HTMLAnchorElement>('.sidebar-nav a')
+    if (!sections.length || !navLinks.length) return
+
+    docsObserver?.disconnect()
+    docsObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue
+        const id = `#${entry.target.id}`
+        navLinks.forEach(link => {
+          link.classList.toggle('active', link.getAttribute('href') === id)
+        })
+      }
+    }, { rootMargin: '-100px 0px -60% 0px' })
+
+    sections.forEach(s => docsObserver!.observe(s))
+  }
+
+  function teardownDocsScrollspy() {
+    docsObserver?.disconnect()
+    docsObserver = null
+  }
+
+  // ── Copy buttons: handler único delegado ──
+  // Reemplaza los 7 onclick inline. Da feedback visual breve al copiar.
+  function handleCopyClick(e: Event) {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('.btn-copy')
+    if (!btn) return
+    const pre = btn.closest('.code-header')?.nextElementSibling as HTMLElement | null
+      ?? btn.parentElement?.nextElementSibling as HTMLElement | null
+    if (!pre) return
+    const text = pre.textContent ?? ''
+    navigator.clipboard.writeText(text).then(() => {
+      btn.classList.add('is-copied')
+      setTimeout(() => btn.classList.remove('is-copied'), 1200)
+    }).catch(() => { /* clipboard bloqueado: silenciar */ })
+  }
+
+  initDocsScrollspy()
+  document.addEventListener('astro:page-load', initDocsScrollspy)
+  document.addEventListener('astro:before-swap', teardownDocsScrollspy)
+  document.addEventListener('click', handleCopyClick)
+</script>
+
+<style>
+  /* ── Pixel art color tokens (same as precios/footer) ── */
+  .hpx-base { fill: var(--accent); }
+  .hpx-alt  { fill: var(--lavender); }
+  .hpx-hi   { fill: var(--mint); }
+  .hpx      { opacity: 0.7; }
+
+  /* ── Page wrapper with pixel grid ── */
+  .docs-page {
+    position: relative;
+    min-height: 100vh;
+  }
+
+
+  /* ── Base Layout ── */
+  .docs-container {
+    position: relative;
+    z-index: 1;
+    padding-top: 3rem;
+    padding-bottom: 5rem;
+  }
+
+  .docs-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  /* Table Reset for Docs */
+  .table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    border: 2px solid var(--border);
+    box-shadow: 8px 8px 0px var(--border);
+    background: var(--surface);
+  }
+
+  .table-wrap table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+
+  .table-wrap th, .table-wrap td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 2px solid var(--border);
+  }
+
+  .table-wrap th {
+    font-weight: 700;
+    color: var(--text-dim);
+    background: var(--surface-2);
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+  }
+
+  .table-wrap tr:last-child td {
+    border-bottom: none;
+  }
+
+  @media (min-width: 900px) {
+    .docs-layout {
+      flex-direction: row;
+      gap: 4rem;
+    }
+  }
+
+  /* ── Sidebar Nav (Pixel Art) ── */
+  .docs-sidebar {
+    width: 100%;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 1.5rem;
+  }
+
+  @media (min-width: 900px) {
+    .docs-sidebar {
+      width: 240px;
+      flex-shrink: 0;
+      border-bottom: none;
+      border-right: 2px solid var(--border);
+      padding-bottom: 0;
+      padding-right: 2rem;
+    }
+  }
+
+  .sidebar-sticky {
+    position: sticky;
+    top: 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+  }
+
+  .sidebar-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .sidebar-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .sidebar-px-marker {
+    color: var(--accent);
+    font-size: 0.5rem;
+    line-height: 1;
+    animation: blink-marker 1.5s steps(2, end) infinite;
+  }
+
+  @keyframes blink-marker {
+    0%, 70% { opacity: 1; }
+    71%, 100% { opacity: 0.3; }
+  }
+
+  .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .sidebar-nav a {
+    font-size: 0.8125rem;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--text-dim);
+    padding: 0.35rem 0.6rem;
+    border: 2px solid transparent;
+    transition: all 0.1s steps(2);
+    position: relative;
+  }
+
+  .sidebar-nav a:hover {
+    color: var(--text);
+    background: var(--surface-2);
+    border-color: var(--border);
+  }
+
+  .sidebar-nav a.active {
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 2px solid var(--accent);
+    box-shadow: 3px 3px 0px color-mix(in srgb, var(--accent) 40%, transparent);
+    font-weight: 600;
+  }
+
+  /* Sidebar pixel decoration */
+  .sidebar-px-deco {
+    margin-top: 1.5rem;
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  /* ── Main Content ── */
+  .docs-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .docs-header {
+    margin-bottom: 3rem;
+    position: relative;
+  }
+
+  /* Pixel art hero decoration */
+  .docs-hero-px {
+    position: absolute;
+    top: -1rem;
+    right: -2rem;
+    pointer-events: none;
+    opacity: 0.35;
+    z-index: 0;
+  }
+
+  /* Retro window frame for header */
+  .docs-header-window {
+    position: relative;
+    z-index: 1;
+    border: 2px solid var(--border);
+    box-shadow: 8px 8px 0px var(--border);
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  .docs-window-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.5rem 1rem;
+    background: var(--bg-1);
+    border-bottom: 2px solid var(--border);
+  }
+
+  .docs-window-bar .px-dot {
+    width: 10px;
+    height: 10px;
+    background: var(--border-strong);
+    border: 1px solid rgba(0,0,0,0.3);
+  }
+  .docs-window-bar .px-dot:first-child { background: #FF5F56; }
+  .docs-window-bar .px-dot:nth-child(2) { background: #FFBD2E; }
+  .docs-window-bar .px-dot:nth-child(3) { background: #27C93F; }
+
+  .docs-window-title {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-left: 0.5rem;
+  }
+
+  .docs-window-content {
+    padding: clamp(1.5rem, 3vw, 2.5rem);
+  }
+
+  .mb-2 { margin-bottom: 0.75rem; }
+  .mt-2 { margin-top: 0.75rem; }
+  .mt-4 { margin-top: 1.5rem; }
+  .text-sm { font-size: 0.875rem; }
+  .text-dim { color: var(--text-dim); }
+
+  .docs-title-px-wrap {
+    margin: 1.5rem 0 2rem;
+    animation: title-flicker 4s infinite;
+  }
+
+  .docs-title-px {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+
+  @keyframes title-flicker {
+    0%, 100% { opacity: 1; }
+    33% { opacity: 0.98; }
+    34% { opacity: 0.9; }
+    35% { opacity: 0.98; }
+    66% { opacity: 1; }
+    67% { opacity: 0.94; }
+    68% { opacity: 1; }
+  }
+
+  .docs-lead {
+    font-size: 1.125rem;
+    color: var(--text-dim);
+    max-width: 600px;
+    line-height: 1.6;
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: -0.01em;
+  }
+
+  .divider {
+    border: none;
+    height: 2px;
+    margin: 3.5rem 0;
+    background: repeating-linear-gradient(
+      to right,
+      var(--border) 0px,
+      var(--border) 8px,
+      transparent 8px,
+      transparent 12px
+    );
+  }
+
+  /* ── Doc Sections (Pixel Art) ── */
+  .doc-section {
+    scroll-margin-top: 6rem;
+  }
+
+  .doc-section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+    text-transform: uppercase;
+    position: relative;
+    padding-bottom: 0.75rem;
+  }
+
+  .doc-section h2::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 48px;
+    height: 4px;
+    background: repeating-linear-gradient(
+      to right,
+      var(--accent) 0px,
+      var(--accent) 8px,
+      transparent 8px,
+      transparent 12px
+    );
+  }
+
+  .doc-section p {
+    margin-bottom: 1rem;
+  }
+
+  .doc-section code:not(.code-block code, .url-path, .param-name, .header-list code) {
+    background: var(--surface-2);
+    padding: 0.15rem 0.4rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85em;
+    color: var(--text);
+    border: 2px solid var(--border);
+    box-shadow: 2px 2px 0px var(--border);
+  }
+
+  /* ── Endpoint Grid ── */
+  .endpoint-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+  }
+
+  @media (min-width: 1024px) {
+    .endpoint-grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 3rem;
+      align-items: start;
+    }
+  }
+
+  /* ── Parameters (Pixel Art) ── */
+  .params-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace;
+    margin: 2rem 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--border);
+  }
+
+  .param-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .param-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.75rem;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    box-shadow: 4px 4px 0px var(--border);
+    transition: transform 0.1s steps(2), box-shadow 0.1s steps(2);
+  }
+
+  .param-item:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0px var(--border);
+  }
+
+  .param-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .param-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 700;
+    color: var(--text);
+    font-size: 0.875rem;
+  }
+
+  .param-type {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    padding: 0.1rem 0.35rem;
+  }
+
+  .param-optional {
+    font-size: 0.65rem;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--text-muted);
+    background: var(--bg-1);
+    padding: 0.1rem 0.4rem;
+    border: 2px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .param-default {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+
+  .param-desc {
+    font-size: 0.875rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  /* Endpoints & Code */
+  .endpoint-url {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: var(--surface-2);
+    border: 2px solid var(--border);
+    box-shadow: 4px 4px 0px var(--border);
+    padding: 0.6rem 0.85rem;
+    border-radius: 0;
+    margin-bottom: 1.5rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.875rem;
+  }
+
+  .method {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 800;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0;
+    border: 2px solid var(--text);
+    box-shadow: 2px 2px 0px var(--text);
+    text-transform: uppercase;
+    color: var(--text);
+    background: var(--surface);
+  }
+
+  .method.get, .method.post {
+    color: var(--bg) !important;
+  }
+
+  .method.get { 
+    background: #00F0FF; /* Bright cyan */
+  }
+
+  .method.post { 
+    background: #FFE600; /* Bright yellow */
+  }
+
+  .method.neutral {
+    background: var(--surface-3);
+    border-color: var(--border-strong);
+    box-shadow: 2px 2px 0px var(--border-strong);
+  }
+
+  /* Copy Button */
+  .btn-copy {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: var(--surface-2);
+    border: 2px solid var(--text);
+    color: var(--text);
+    padding: 0;
+    cursor: pointer;
+    box-shadow: 2px 2px 0px var(--text);
+    transition: transform 0.1s steps(2), box-shadow 0.1s steps(2);
+  }
+  .btn-copy:hover {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px var(--text);
+  }
+  .btn-copy:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0px 0px 0px var(--text);
+  }
+  .btn-copy.is-copied {
+    background: var(--mint);
+    color: var(--bg);
+    border-color: var(--mint);
+    box-shadow: 2px 2px 0px var(--text);
+  }
+
+  .url-path {
+    color: var(--text);
+  }
+
+  .code-window {
+    background: #0F1115;
+    border-radius: 0;
+    overflow: hidden;
+    border: 2px solid var(--border);
+    box-shadow: 8px 8px 0px var(--border);
+    transition: transform 0.1s steps(2), box-shadow 0.1s steps(2);
+  }
+
+  .code-window:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 10px 10px 0px var(--border);
+  }
+
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 1rem;
+    background: var(--surface);
+    border-bottom: 2px solid var(--border);
+  }
+
+  .window-controls {
+    display: flex;
+    gap: 6px;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 0; /* squares for retro feel */
+    border: 1px solid rgba(0,0,0,0.5);
+  }
+  .dot.red { background: #FF5F56; }
+  .dot.yellow { background: #FFBD2E; }
+  .dot.green { background: #27C93F; }
+
+  .code-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .status-code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: var(--radius-sm);
+  }
+
+  .status-code.success {
+    color: #27C93F;
+    background: rgba(39, 201, 63, 0.1);
+  }
+
+  .code-block {
+    padding: 1.25rem;
+    font-size: 0.8125rem;
+    color: #E6EDF3;
+    overflow-x: auto;
+    white-space: pre;
+    line-height: 1.6;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .c-accent { color: #818CF8; }
+  
+  /* ── Alerts (Pixel Art) ── */
+  .alert {
+    display: flex;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: var(--bg-1);
+    border: 2px solid var(--border);
+    border-left: 4px solid var(--accent);
+    margin: 1.5rem 0;
+    box-shadow: 8px 8px 0px var(--border);
+    border-radius: 0;
+    position: relative;
+  }
+
+  .alert::before {
+    content: '!';
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    width: 16px;
+    height: 16px;
+    background: var(--accent);
+    color: var(--bg);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--text);
+  }
+
+  .card {
+    border-radius: 0;
+    border: 2px solid var(--border);
+    box-shadow: 8px 8px 0px var(--border);
+    transition: transform 0.1s steps(2), box-shadow 0.1s steps(2);
+  }
+
+  .card:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 10px 10px 0px var(--border);
+  }
+
+  .alert-icon {
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .alert-content strong {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+    color: var(--text);
+  }
+
+  .alert-content p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--text-dim);
+  }
+
+  /* ── Misc (Pixel Art) ── */
+  .header-list {
+    list-style: none;
+    margin: 1rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .header-list li {
+    font-size: 0.875rem;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    transition: transform 0.1s steps(2), box-shadow 0.1s steps(2);
+  }
+
+  .header-list li:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0px var(--border);
+  }
+  
+  .header-list code {
+    background: var(--bg-1);
+    border: 2px solid var(--border);
+    padding: 0.15rem 0.4rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85em;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* Badge pixel enhancement */
+  .badge {
+    border: 2px solid var(--border);
+    box-shadow: 2px 2px 0px var(--border);
+    font-weight: 700;
+  }
+
+  /* ── CRT Scanline overlay on code blocks ── */
+  .code-window::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 2px,
+      rgba(0,0,0,0.06) 2px,
+      rgba(0,0,0,0.06) 4px
+    );
+    z-index: 1;
+  }
+
+  .code-window {
+    position: relative;
+  }
+
+  /* ── Table pixel enhancements ── */
+  .table-wrap {
+    box-shadow: 8px 8px 0px var(--border);
+    border: 2px solid var(--border);
+    transition: transform 0.1s steps(2), box-shadow 0.1s steps(2);
+  }
+
+  .table-wrap:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 10px 10px 0px var(--border);
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .docs-hero-px { display: none; }
+    .sidebar-px-deco { display: none; }
+  }
+
+  @media (max-width: 600px) {
+    .docs-header-window {
+      box-shadow: 4px 4px 0px var(--border);
+    }
+    .code-window, .code-window:hover {
+      box-shadow: 4px 4px 0px var(--border);
+      transform: none;
+    }
+    .alert { box-shadow: 4px 4px 0px var(--border); }
+    .card, .card:hover {
+      box-shadow: 4px 4px 0px var(--border);
+      transform: none;
+    }
+    .param-item, .param-item:hover {
+      box-shadow: 2px 2px 0px var(--border);
+      transform: none;
+    }
+  }
+</style>

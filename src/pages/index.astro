@@ -1,0 +1,1605 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+import PixelText from "../components/PixelText.astro";
+import { db, getSession } from "../lib/supabase";
+
+const { user } = await getSession(Astro.cookies, Astro.request);
+
+const { data: ultima } = await db
+  .from("calidad_aire")
+  .select("fecha, no2, o3, pm10")
+  .not("no2", "is", null)
+  .order("fecha", { ascending: false })
+  .limit(1)
+  .maybeSingle();
+
+const no2 = ultima?.no2 ?? null;
+const o3 = ultima?.o3 ?? null;
+const pm10 = ultima?.pm10 ?? null;
+const fechaStr = ultima?.fecha
+  ? new Intl.DateTimeFormat("es-ES", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(ultima.fecha))
+  : null;
+const datosDesactualizados = ultima?.fecha
+  ? Date.now() - new Date(ultima.fecha).getTime() > 25 * 60 * 60 * 1000
+  : false;
+
+// ─── Pixel-art "Xixón" map ─────────────────────────────────────────────
+const MAP_COLS = 40;
+const MAP_ROWS = 40;
+const MAP_UNIT = 10;
+
+type MapCell = { x: number; y: number; tone: "dim" | "mid" };
+const mapCells: MapCell[] = [];
+
+// Silueta orgánica: densidad radial + ruido + bahía recortada arriba
+for (let y = 0; y < MAP_ROWS; y++) {
+  for (let x = 0; x < MAP_COLS; x++) {
+    const cx = MAP_COLS / 2;
+    const cy = MAP_ROWS / 2 + 4;
+    const dx = (x - cx) / (MAP_COLS / 2);
+    const dy = (y - cy) / (MAP_ROWS / 2);
+    const d = Math.sqrt(dx * dx + dy * dy * 1.15);
+    const noise = ((x * 73 + y * 127 + x * y * 3) % 23) / 23;
+
+    // Recorte de la bahía (arriba)
+    const bayDepth = 1 - y / (MAP_ROWS * 0.28);
+    if (y < MAP_ROWS * 0.28) {
+      const bx = Math.abs(x - cx) / (MAP_COLS * 0.22);
+      if (bx < bayDepth * 0.95) continue;
+    }
+
+    if (d + noise * 0.28 > 0.92) continue;
+    // Densidad variable por celda
+    const fill = (x * 31 + y * 17) % 7;
+    if (fill === 0) continue;
+    const tone: MapCell["tone"] = fill < 3 ? "dim" : "mid";
+    mapCells.push({ x, y, tone });
+  }
+}
+
+// Estaciones de datos (coords en grid)
+const stations = [
+  { x: 19, y: 22, label: "Constitución", tone: "accent", main: true },
+  { x: 25, y: 17, label: "Puerto", tone: "mint", main: false },
+  { x: 12, y: 25, label: "La Calzada", tone: "lavender", main: false },
+  { x: 29, y: 24, label: "Somió", tone: "lavender", main: false },
+  { x: 17, y: 30, label: "Roces", tone: "mint", main: false },
+];
+
+// Líneas discontinuas desde la estación central a las demás
+const centralStation = stations[0];
+const connections = stations.slice(1).map((s) => ({
+  x1: centralStation.x * MAP_UNIT + MAP_UNIT,
+  y1: centralStation.y * MAP_UNIT + MAP_UNIT,
+  x2: s.x * MAP_UNIT + MAP_UNIT,
+  y2: s.y * MAP_UNIT + MAP_UNIT,
+}));
+
+const MAP_W = MAP_COLS * MAP_UNIT;
+const MAP_H = MAP_ROWS * MAP_UNIT;
+
+---
+
+<Layout title="Inicio">
+  <div class="container">
+    <!-- ─── HERO ─── -->
+    <section class="hero-section">
+      <div class="hero-content">
+        <div class="hero-kicker animate-up delay-1">
+          <div class="hero-kicker-meta">
+            <div class="hero-kicker-badge">
+              <span class="status-dot"></span>
+              <span class="label mono">API LIVE · v0.9.0</span>
+            </div>
+            <span class="hero-kicker-sub">Gijón Open Data Platform</span>
+          </div>
+        </div>
+
+        <h1 class="hero-h1-px animate-up delay-2">
+          <PixelText text="DATOS PUBLICOS" scale={7} seed={10} />
+          <PixelText text="DE GIJON," scale={7} seed={20} />
+          <PixelText text="EN UN SOLO LUGAR" scale={7} seed={30} />
+        </h1>
+
+        <p class="hero-sub animate-up delay-3">
+          Calidad del aire, padrón, inversiones, multas, incidencias.<br />Actualizados a diario.
+        </p>
+
+        <div class="hero-cta animate-up delay-4">
+          {
+            user ? (
+              <a href="/app/dashboard" class="btn btn-primary btn-lg">
+                Ir al Dashboard
+              </a>
+            ) : (
+              <a href="/registro" class="btn btn-primary btn-lg">
+                Empezar gratis
+              </a>
+            )
+          }
+          <a href="/datos" class="btn btn-secondary btn-lg">Explorar datos →</a>
+        </div>
+
+        <!-- Live air quality numbers -->
+        <div class="hero-numbers animate-up delay-5">
+          <div class="hero-numbers-header">
+            <span class="status-dot" style="width:5px;height:5px;"></span>
+            <span
+              class="mono"
+              style="font-size:0.6rem;letter-spacing:0.08em;color:var(--text-muted);text-transform:uppercase;"
+              >Calidad del aire · Tiempo real</span
+            >
+          </div>
+          <div class="hero-numbers-body">
+            <div class="hero-num">
+              <span class="num-val mono">{no2 != null ? no2 : "—"}</span>
+              <span class="num-label">NO₂ µg/m³</span>
+            </div>
+            <div class="num-divider"></div>
+            <div class="hero-num">
+              <span class="num-val mono">{o3 != null ? o3 : "—"}</span>
+              <span class="num-label">O₃ µg/m³</span>
+            </div>
+            <div class="num-divider"></div>
+            <div class="hero-num">
+              <span class="num-val mono">{pm10 != null ? pm10 : "—"}</span>
+              <span class="num-label">PM10 µg/m³</span>
+            </div>
+            {
+              fechaStr && (
+                <>
+                  <div class="num-divider" />
+                  <div class="hero-num">
+                    <span
+                      class="num-val mono"
+                      style={`font-size:0.8rem; color:${datosDesactualizados ? "var(--amber)" : "var(--text-muted)"}`}
+                    >
+                      {fechaStr}
+                    </span>
+                    <span class="num-label">
+                      {datosDesactualizados
+                        ? "⚠ desactualizados"
+                        : "última lectura"}
+                    </span>
+                  </div>
+                </>
+              )
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── Pixel-art Xixón map (Right Column) ─── -->
+      <div class="hero-visual animate-up delay-5">
+        <div class="pixel-map">
+          <svg
+            viewBox={`0 0 ${MAP_W} ${MAP_H}`}
+            class="pixel-map-svg"
+            aria-hidden="true"
+          >
+            <!-- Grid lines (fondo sutil) -->
+            <g class="map-grid">
+              {
+                Array.from({ length: Math.floor(MAP_COLS / 4) + 1 }).map(
+                  (_, i) => <line x1={i * 40} y1={0} x2={i * 40} y2={MAP_H} />,
+                )
+              }
+              {
+                Array.from({ length: Math.floor(MAP_ROWS / 4) + 1 }).map(
+                  (_, i) => <line x1={0} y1={i * 40} x2={MAP_W} y2={i * 40} />,
+                )
+              }
+            </g>
+
+            <!-- Tejido urbano (pixel buildings) -->
+            {
+              mapCells.map((c) => (
+                <rect
+                  class:list={["map-cell", `map-cell--${c.tone}`]}
+                  x={c.x * MAP_UNIT + 1}
+                  y={c.y * MAP_UNIT + 1}
+                  width={MAP_UNIT - 2}
+                  height={MAP_UNIT - 2}
+                />
+              ))
+            }
+
+            <!-- Líneas discontinuas conectando estaciones -->
+            {
+              connections.map((c, i) => (
+                <line
+                  class:list={["map-conn", `map-conn--${i}`]}
+                  x1={c.x1}
+                  y1={c.y1}
+                  x2={c.x2}
+                  y2={c.y2}
+                />
+              ))
+            }
+
+            <!-- Estaciones -->
+            {
+              stations.map((s) => (
+                <g
+                  class="map-station"
+                  transform={`translate(${s.x * MAP_UNIT}, ${s.y * MAP_UNIT})`}
+                >
+                  <rect
+                    class="station-halo"
+                    x="-8"
+                    y="-8"
+                    width="36"
+                    height="36"
+                  />
+                  <rect
+                    class:list={["station-core", `station-core--${s.tone}`]}
+                    x="0"
+                    y="0"
+                    width="20"
+                    height="20"
+                  />
+                  {s.main && (
+                    <rect
+                      class="station-pulse"
+                      x="-4"
+                      y="-4"
+                      width="28"
+                      height="28"
+                    />
+                  )}
+                </g>
+              ))
+            }
+          </svg>
+
+          <!-- Labels flotantes -->
+          <div class="map-label map-label--a">
+            <span class="ml-dot"></span>
+            <span class="ml-text">Constitución · <strong>NO₂ 24</strong></span>
+          </div>
+          <div class="map-label map-label--b">
+            <span class="ml-count">+5</span>
+            <span class="ml-text">estaciones activas</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── FEATURES BENTO ─── -->
+    <section class="section" id="features">
+      <div class="bento-grid">
+        <div class="bento-item group">
+          <div class="bento-glow"></div>
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            class="bento-icon"
+          >
+            <path
+              d="M4 13h8v6h2v2h-2v2h-2v-8H2v-4h2v2Zm12 6h-2v-2h2v2Zm2-2h-2v-2h2v2Zm2-2h-2v-2h2v2Zm-6-6h8v4h-2v-2h-8V5h-2V3h2V1h2v8Zm-8 2H4V9h2v2Zm2-2H6V7h2v2Zm2-2H8V5h2v2Z"
+            ></path>
+          </svg>
+          <h3 class="bento-title">Alta Disponibilidad</h3>
+          <p class="bento-desc">
+            Infraestructura global servida desde el borde. Latencia mínima
+            garantizada para todas las consultas a la API.
+          </p>
+        </div>
+        <div class="bento-item group">
+          <div class="bento-glow"></div>
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            class="bento-icon"
+          >
+            <path
+              d="M2 6h2v4H2zm0 4h2v4H2zm0 4h2v4H2zm18-8h2v4h-2zm0 4h2v4h-2zm0 4h2v4h-2zM4 4h4v2H4zm0 8h4v-2H4zm0 4h4v-2H4zm0 4h4v-2H4zM16 4h4v2h-4zm0 8h4v-2h-4zm0 4h4v-2h-4zm0 4h4v-2h-4zM8 2h8v2H8zm0 12h8v-2H8zm0 4h8v-2H8zm0 4h8v-2H8z"
+            ></path>
+          </svg>
+          <h3 class="bento-title">Datos Estructurados</h3>
+          <p class="bento-desc">
+            Limpiamos y normalizamos los datos en crudo del ayuntamiento.
+            Formatos JSON y CSV consistentes.
+          </p>
+        </div>
+        <div class="bento-item bento-item--col2 group">
+          <div class="bento-glow"></div>
+          <div
+            style="display:flex; justify-content:space-between; align-items:flex-start"
+          >
+            <div>
+              <h3 class="bento-title">Código Abierto</h3>
+              <p class="bento-desc">
+                Todo el ecosistema OpenXixón está construido en público.
+                Contribuye, audita y mejora la plataforma.
+              </p>
+            </div>
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              class="bento-icon"
+            >
+              <path
+                d="M5 4h4v2H5zm14 0h-4v2h4zM5 20h4v-2H5zm14 0h-4v-2h4zM3 6h2v12H3zm18 0h-2v12h2z"
+              ></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── DATASETS ─── -->
+    <section class="section" id="datasets">
+      <div class="section-row">
+        <h2 class="section-title">Datasets destacados</h2>
+        <a href="/datos" class="section-cta mono">Ver catálogo completo →</a>
+      </div>
+
+      <div class="datasets-teaser">
+        <a href="/aire" class="dt-card">
+          <h3>Calidad del aire</h3>
+          <p>NO₂, PM10, O₃, PM2.5 — estaciones municipales · ingesta diaria</p>
+        </a>
+        <a href="/inversiones" class="dt-card">
+          <h3>Inversiones</h3>
+          <p>Contratos públicos: presupuestado vs adjudicado · mensual</p>
+        </a>
+        <a href="/multas" class="dt-card">
+          <h3>Multas de tráfico</h3>
+          <p>Sanciones por calificación e importe · anual</p>
+        </a>
+      </div>
+    </section>
+
+    <!-- ─── CASOS DE USO ─── -->
+    <section class="section" id="use-cases">
+      <div class="section-row">
+        <h2 class="section-title">Casos de Uso</h2>
+        <span class="label">Para qué sirve</span>
+      </div>
+
+      <div class="bento-grid" style="margin-bottom:2rem;">
+        <div class="bento-item group">
+          <div class="bento-glow"></div>
+          <div class="uc-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M4 20h18v2H4zM2 2h2v18H2zm16 11v3h-2v-3zM8 13v3H6v-3zm8-2v2H8v-2zm0 5v2H8v-2zm4-12v3h-2V4zM8 4v3H6V4zm10-2v2H8V2zm0 5v2H8V7z"
+              ></path>
+            </svg>
+          </div>
+          <h3 class="bento-title">Business Intelligence</h3>
+          <p class="bento-desc">
+            Alimenta cuadros de mando en Power BI o Tableau en tiempo real con
+            datos de contaminación o inversiones municipales.
+          </p>
+        </div>
+
+        <div class="bento-item group">
+          <div class="bento-glow"></div>
+          <div class="uc-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M4 2h16v2H4zm0 18h16v2H4zM2 4h2v16H2zm18 0h2v16h-2zm-9 8h2v6h-2zm-4 2h2v4H7zm8-8h2v12h-2z"
+              ></path>
+            </svg>
+          </div>
+          <h3 class="bento-title">Data Science & Modelado</h3>
+          <p class="bento-desc">
+            Ingesta los datos directamente a Python/Pandas para predecir
+            tendencias demográficas o picos de partículas.
+          </p>
+        </div>
+
+        <div
+          class="bento-item bento-item--col2 group"
+          style="flex-direction:row; align-items:center; gap:2rem;"
+        >
+          <div class="bento-glow"></div>
+          <div class="uc-icon" style="margin-bottom:0; flex-shrink:0;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M4 6h16v2H4zm0 14h16v2H4zM2 8h2v12H2zm18 0h2v12h-2z"
+              ></path>
+              <path
+                d="M11 4h2v4h-2zm-3 6h2v2H8zm6 0h4v2h-4zm-1-8h4v2h-4zM0 12h2v2H0zm22 0h2v2h-2zm-12 4h4v2h-4zm-2-2h2v2H8zm6 0h2v2h-2z"
+              ></path>
+            </svg>
+          </div>
+          <div>
+            <h3 class="bento-title">Agentes de IA</h3>
+            <p class="bento-desc" style="max-width:none;">
+              Proporciona contexto hiper-local verificado a LLMs sobre el estado
+              y las métricas de la ciudad de Gijón. Listo para integrarse con
+              Claude Code o Cursor.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── API ─── -->
+    <section class="section" id="api">
+      <div class="api-teaser">
+        <div class="api-teaser-text">
+          <span class="label" style="display:block; margin-bottom:0.75rem">Para desarrolladores</span>
+          <h2>API REST abierta.</h2>
+          <p>Acceso programático a todos los datasets. Plan Free incluye 100 peticiones/día. Pro escala a 10k/día con 1 año de histórico.</p>
+          <a href="/docs" class="btn btn-primary">Ver docs →</a>
+        </div>
+        <pre class="api-snippet mono"><code>{`curl https://openxixon.vodtinker.dev/api/aire?range=24h \\
+  -H "Authorization: Bearer <token>"`}</code></pre>
+      </div>
+    </section>
+
+    <!-- ─── FAQ ─── -->
+    <section class="section" id="faq">
+      <div class="section-row">
+        <h2 class="section-title">Preguntas Frecuentes</h2>
+        <span class="label">Soporte</span>
+      </div>
+
+      <div class="faq-list">
+        <details class="faq-item" name="faq">
+          <summary class="faq-summary">
+            ¿Es realmente gratis utilizar esta API?
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              class="faq-icon"
+              ><path
+                d="M12 5v14M5 12h14"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"></path></svg
+            >
+          </summary>
+          <div class="faq-content">
+            <p>
+              Sí, la API es 100% gratuita para uso no comercial y pruebas. El
+              plan Free (que funciona sin API key) te permite realizar hasta 100
+              peticiones diarias. Para un mayor volumen de integraciones o
+              aplicaciones en producción, puedes crear una cuenta gratuita y
+              obtener una API key.
+            </p>
+          </div>
+        </details>
+        <details class="faq-item" name="faq">
+          <summary class="faq-summary">
+            ¿Cada cuánto tiempo se actualizan los datos devueltos?
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              class="faq-icon"
+              ><path
+                d="M12 5v14M5 12h14"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"></path></svg
+            >
+          </summary>
+          <div class="faq-content">
+            <p>
+              La frecuencia de actualización depende exclusivamente del dataset.
+              Por ejemplo, los datos de Calidad del Aire se actualizan
+              horariamente leyendo de las estaciones, las Inversiones
+              municipales se sincronizan a diario y la Población se consolida
+              cada año natural.
+            </p>
+          </div>
+        </details>
+        <details class="faq-item" name="faq">
+          <summary class="faq-summary">
+            ¿Existe un entorno Sandbox para realizar mis pruebas?
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              class="faq-icon"
+              ><path
+                d="M12 5v14M5 12h14"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"></path></svg
+            >
+          </summary>
+          <div class="faq-content">
+            <p>
+              Actualmente no necesitas un entorno Sandbox aislado. Como nuestra
+              API es de solo lectura (únicamente expone métodos GET) para los
+              datos abiertos, puedes hacer todas tus pruebas de integración
+              directamente contra los endpoints de producción sin riesgo alguno.
+            </p>
+          </div>
+        </details>
+      </div>
+      <div class="faq-more">
+        <a href="/faq" class="section-cta mono">Ver todas las preguntas →</a>
+      </div>
+    </section>
+  </div>
+  <script>
+    function initCodeTabs() {
+      const tabs = Array.from(document.querySelectorAll(".code-tab"));
+      const snippets = Array.from(document.querySelectorAll(".code-snippet"));
+      if (!tabs.length || !snippets.length) return;
+
+      tabs.forEach((t) => {
+        const tab = t as HTMLElement;
+        if (tab.dataset.bound === "1") return;
+        tab.dataset.bound = "1";
+
+        tab.addEventListener("click", () => {
+          tabs.forEach((t) => t.classList.remove("active"));
+          snippets.forEach((s) => {
+            (s as HTMLElement).style.display = "none";
+          });
+
+          tab.classList.add("active");
+          const lang = tab.getAttribute("data-lang");
+          const targetSnippet = lang
+            ? (document.getElementById(`snippet-${lang}`) as HTMLElement)
+            : null;
+          if (targetSnippet) targetSnippet.style.display = "block";
+        });
+      });
+    }
+
+    initCodeTabs();
+    document.addEventListener("astro:page-load", initCodeTabs);
+  </script>
+
+  <section class="pricing-strip">
+    <div class="ps-inner">
+      <div class="ps-text">
+        <span class="ps-label mono">Planes</span>
+        <p>Empieza gratis. Escala a Pro cuando necesites más.</p>
+      </div>
+      <div class="ps-actions">
+        <a href="/precios" class="btn btn-ghost btn-sm">Free · 100/día</a>
+        <a href="/precios" class="btn btn-primary btn-sm">Pro · Próximamente</a>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  /* Hero */
+  .hero-section {
+    position: relative;
+    padding: 7rem 0 6rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5rem;
+    align-items: center;
+    z-index: 10;
+  }
+
+  .hero-content {
+    max-width: 600px;
+  }
+
+  /* Kicker */
+  .hero-kicker {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-bottom: 2rem;
+  }
+  .hero-kicker-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .hero-kicker-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+  .hero-kicker-sub {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-family: "IBM Plex Mono", monospace;
+    letter-spacing: 0.02em;
+  }
+
+  .hero-h1-px {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1.75rem;
+    filter: drop-shadow(0 0 16px var(--accent-glow));
+  }
+
+  @media (max-width: 768px) {
+    .hero-h1-px :global(svg) {
+      width: 100%;
+      height: auto;
+    }
+  }
+
+  .hero-cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .hero-sub {
+    font-size: 1rem;
+    color: var(--text-dim);
+    margin-bottom: 2rem;
+    line-height: 1.75;
+    font-family: "IBM Plex Mono", monospace;
+    opacity: 0.8;
+  }
+
+  /* Live air quality numbers widget */
+  .hero-numbers {
+    display: inline-flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    overflow: hidden;
+    position: relative;
+  }
+  /* Accent top bar */
+  .hero-numbers::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent-gradient);
+  }
+
+  .hero-numbers-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-1);
+  }
+
+  .hero-numbers-body {
+    display: flex;
+    align-items: stretch;
+  }
+
+  .hero-num {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.85rem 1.25rem;
+  }
+
+  .num-val {
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .num-label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.55rem;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .num-divider {
+    width: 1px;
+    background: var(--border);
+    flex-shrink: 0;
+    align-self: stretch;
+  }
+
+  /* Sections */
+  .section {
+    padding: 0 0 5rem;
+  }
+
+  .section-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  /* Datasets — premium cards */
+  .datasets {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .ds-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    transition: all 0.2s ease;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .ds-row:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  }
+
+  .ds-left {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+
+  .ds-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    flex-shrink: 0;
+    transition:
+      color 0.2s,
+      border-color 0.2s;
+  }
+
+  .ds-row:hover .ds-icon {
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
+
+  .ds-left > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .ds-name {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .ds-desc {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+  }
+
+  .ds-right {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    flex-shrink: 0;
+  }
+
+  .ds-arrow {
+    color: var(--text-muted);
+    transition:
+      transform 0.2s ease,
+      color 0.2s ease;
+  }
+
+  .ds-row:hover .ds-arrow {
+    color: var(--text);
+    transform: translateX(4px);
+  }
+
+  @media (max-width: 640px) {
+    .ds-row {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .ds-right {
+      width: 100%;
+      justify-content: space-between;
+      margin-top: 0.5rem;
+    }
+  }
+
+  /* API section */
+  .api-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: start;
+  }
+
+  .api-stats {
+    display: flex;
+    gap: 2rem;
+  }
+
+  .api-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .api-stat-n {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .api-stat-l {
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+  }
+
+  .api-right {
+    position: relative;
+    z-index: 5;
+  }
+
+  /* ─── Mini-dashboard flotante (LIVE card) ─── */
+  .api-live-card {
+    position: absolute;
+    top: -28px;
+    right: -20px;
+    z-index: 20;
+    width: 240px;
+    padding: 0.85rem 0.95rem;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    font-family: "Inter", system-ui, sans-serif;
+    box-shadow:
+      0 12px 32px color-mix(in srgb, var(--accent) 15%, transparent),
+      0 2px 6px rgba(0, 0, 0, 0.25);
+    animation: liveCardFloat 5s ease-in-out infinite alternate;
+    pointer-events: none;
+  }
+  :root[data-theme="dark"] .api-live-card {
+    background: #141414;
+  }
+
+  @keyframes liveCardFloat {
+    0% {
+      transform: translateY(-2px);
+    }
+    100% {
+      transform: translateY(6px);
+    }
+  }
+
+  .alc-head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.6875rem;
+    margin-bottom: 0.5rem;
+  }
+  .alc-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--mint);
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--mint) 20%, transparent);
+    animation: alcPulse 1.8s ease-in-out infinite;
+  }
+  @keyframes alcPulse {
+    0%,
+    100% {
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--mint) 20%, transparent);
+    }
+    50% {
+      box-shadow: 0 0 0 5px color-mix(in srgb, var(--mint) 10%, transparent);
+    }
+  }
+  .alc-live {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.625rem;
+    font-weight: 500;
+    color: var(--mint);
+    letter-spacing: 0.1em;
+  }
+  .alc-title {
+    color: var(--text);
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+  .alc-ts {
+    margin-left: auto;
+    color: var(--text-muted);
+    font-size: 0.625rem;
+  }
+
+  .alc-metric {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    margin-bottom: 0.1rem;
+  }
+  .alc-n {
+    font-size: 1.75rem;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .alc-u {
+    font-size: 0.6875rem;
+    color: var(--text-dim);
+  }
+
+  .alc-spark {
+    display: block;
+    width: 100%;
+    height: 40px;
+    margin: 0.5rem 0 0.6rem;
+  }
+  .alc-spark-area {
+    fill: url(#alc-spark-grad);
+  }
+  .alc-spark-line {
+    fill: none;
+    stroke: var(--mint);
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+
+  .alc-foot {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+  }
+  .alc-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 500;
+  }
+  .alc-delta--down {
+    color: var(--mint);
+  }
+  .alc-delta--up {
+    color: #ef4444;
+  }
+
+  @media (max-width: 1100px) {
+    .api-live-card {
+      position: relative;
+      top: 0;
+      right: 0;
+      width: 100%;
+      max-width: 320px;
+      margin-bottom: 1rem;
+      animation: none;
+    }
+  }
+
+  /* Render-style flat code frame — 1px border + top accent line */
+  .api-code-frame {
+    position: relative;
+    border: 1px solid var(--border);
+    background: #0a0a0a;
+  }
+
+  .api-code-accent {
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    right: -1px;
+    height: 2px;
+    background: var(--accent-gradient);
+    pointer-events: none;
+  }
+
+  .api-code-wrap {
+    background: #0a0a0a;
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: #0d1117;
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+
+  .code-window-controls {
+    display: flex;
+    gap: 6px;
+    margin-right: 1.5rem;
+  }
+
+  .control-btn {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  .control-btn.close {
+    background: #ff5f56;
+  }
+  .control-btn.min {
+    background: #ffbd2e;
+  }
+  .control-btn.max {
+    background: #27c93f;
+  }
+
+  .code-tabs {
+    display: flex;
+    gap: 1.5rem;
+    flex: 1;
+  }
+
+  .code-tab {
+    background: transparent;
+    font-family: inherit;
+    border: none;
+    font-size: 0.8125rem;
+    color: #8b949e;
+    padding: 0.75rem 0;
+    cursor: pointer;
+    border-bottom: 1px solid transparent;
+    transition: color 0.15s;
+    margin-bottom: -1px;
+  }
+
+  .code-tab:hover {
+    color: #c9d1d9;
+  }
+  .code-tab.active {
+    color: #e6edf3;
+    border-bottom-color: #e6edf3;
+  }
+
+  .api-code-wrap .code-block {
+    border: none;
+    border-radius: 0 0 var(--radius) var(--radius);
+    margin: 0;
+  }
+
+  /* Bento Grid */
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 5rem;
+  }
+
+  .bento-item {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transition:
+      transform 0.3s ease,
+      border-color 0.3s ease,
+      box-shadow 0.3s ease;
+    overflow: hidden;
+  }
+
+  .bento-item:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-strong);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  }
+
+  .bento-glow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(
+      circle at 50% 0%,
+      rgba(0, 0, 0, 0.03),
+      transparent 70%
+    );
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+
+  .bento-item:hover .bento-glow {
+    opacity: 1;
+  }
+
+  .bento-item--col2 {
+    grid-column: span 2;
+  }
+
+  .bento-icon {
+    color: var(--text);
+    opacity: 0.8;
+  }
+
+  .bento-title {
+    font-size: 1rem;
+    font-weight: 500;
+  }
+
+  .bento-desc {
+    font-size: 0.875rem;
+    margin: 0;
+    max-width: 480px;
+  }
+
+  /* Topo map */
+  .topo-wrap {
+    margin: 0 0 4rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--bg-1);
+  }
+
+  /* ── Custom Isometric SVG ── */
+  .hero-visual {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ─── Pixel-art Xixón map ─── */
+  .pixel-map {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    aspect-ratio: 1 / 1;
+  }
+  .pixel-map-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    overflow: visible;
+  }
+
+  .map-grid line {
+    stroke: var(--border);
+    stroke-width: 1;
+    opacity: 0.35;
+  }
+
+  .map-cell {
+    shape-rendering: crispEdges;
+  }
+  .map-cell--dim {
+    fill: var(--border);
+    opacity: 0.55;
+  }
+  .map-cell--mid {
+    fill: var(--border-strong);
+    opacity: 0.75;
+  }
+  :root[data-theme="light"] .map-cell--dim {
+    opacity: 0.7;
+  }
+  :root[data-theme="light"] .map-cell--mid {
+    opacity: 0.9;
+  }
+
+  .map-conn {
+    stroke: var(--accent);
+    stroke-width: 1.5;
+    stroke-dasharray: 3 4;
+    opacity: 0.65;
+    animation: mapStream 2s linear infinite;
+  }
+  .map-conn--0 {
+    animation-delay: 0s;
+  }
+  .map-conn--1 {
+    animation-delay: -0.5s;
+  }
+  .map-conn--2 {
+    animation-delay: -1s;
+  }
+  .map-conn--3 {
+    animation-delay: -1.5s;
+  }
+
+  @keyframes mapStream {
+    from {
+      stroke-dashoffset: 7;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  .map-station .station-core {
+    shape-rendering: crispEdges;
+    stroke: var(--bg);
+    stroke-width: 2;
+  }
+  .station-core--accent {
+    fill: var(--accent);
+  }
+  .station-core--mint {
+    fill: var(--mint);
+  }
+  .station-core--lavender {
+    fill: var(--lavender);
+  }
+
+  .station-halo {
+    fill: var(--accent);
+    opacity: 0.06;
+    shape-rendering: crispEdges;
+  }
+
+  .station-pulse {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2;
+    opacity: 0;
+    animation: stationPulse 2.4s ease-out infinite;
+    shape-rendering: crispEdges;
+  }
+  @keyframes stationPulse {
+    0% {
+      opacity: 0.9;
+      transform: scale(1);
+    }
+    80% {
+      opacity: 0;
+      transform: scale(1.6);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.6);
+    }
+  }
+  .map-station {
+    transform-origin: 10px 10px;
+    transform-box: fill-box;
+  }
+  .station-pulse {
+    transform-origin: 14px 14px;
+    transform-box: fill-box;
+  }
+
+  /* Labels flotantes */
+  .map-label {
+    position: absolute;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.65rem;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.75rem;
+    color: var(--text);
+    white-space: nowrap;
+    box-shadow: 0 4px 18px color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+  .map-label--a {
+    top: 38%;
+    right: -12%;
+  }
+  .map-label--b {
+    bottom: 10%;
+    left: -8%;
+  }
+  .map-label .ml-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--mint);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--mint) 25%, transparent);
+  }
+  .map-label .ml-count {
+    font-weight: 500;
+    color: var(--accent);
+    padding: 0 0.3rem;
+    border-right: 1px solid var(--border);
+  }
+  .map-label strong {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  @media (max-width: 1100px) {
+    .map-label--a,
+    .map-label--b {
+      display: none;
+    }
+  }
+
+  /* API Key Widget */
+  .api-key-widget {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 2rem;
+    max-width: 360px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  }
+  .akw-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+  .akw-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+  }
+  .akw-badge {
+    font-size: 0.65rem;
+    background: var(--bg-1);
+    padding: 0.2rem 0.5rem;
+    border-radius: 99px;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .akw-bottom {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .akw-key-box {
+    flex: 1;
+    background: #09090b;
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.75rem;
+    display: flex;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .akw-dots {
+    color: #fff;
+    letter-spacing: 2px;
+    font-size: 0.8rem;
+    transition: opacity 0.2s;
+  }
+  .akw-reveal {
+    position: absolute;
+    left: 0.75rem;
+    color: #10b981;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.8rem;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.2s;
+  }
+  .akw-key-box:hover .akw-dots {
+    opacity: 0;
+  }
+  .akw-key-box:hover .akw-reveal {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .akw-copy {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    width: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .akw-copy:hover {
+    background: var(--surface);
+    color: var(--text);
+    border-color: var(--text-muted);
+  }
+
+  @media (max-width: 1024px) {
+    .hero-section {
+      grid-template-columns: 1fr;
+      text-align: center;
+      gap: 2rem;
+    }
+    .hero-content {
+      max-width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .hero-cta {
+      justify-content: center;
+    }
+    .hero-visual {
+      min-height: 300px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .hero-section {
+      padding: 4rem 0 3rem;
+    }
+    .hero-numbers {
+      width: 100%;
+    }
+    .hero-numbers-body {
+      flex-direction: column;
+    }
+    .num-divider {
+      width: 100%;
+      height: 1px;
+      align-self: auto;
+    }
+    .api-grid {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+    .api-stats {
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .bento-grid {
+      grid-template-columns: 1fr;
+    }
+    .bento-item--col2 {
+      grid-column: span 1;
+    }
+  }
+
+  /* Use Cases (Bento Icon Modifier) */
+  .uc-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text);
+    margin-bottom: 1.25rem;
+    z-index: 2;
+    position: relative;
+  }
+  @media (max-width: 640px) {
+    .bento-item--col2[style] {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      gap: 1.25rem !important;
+    }
+  }
+
+  /* FAQ Premium Accordion */
+  .faq-list {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--border);
+  }
+  .faq-item {
+    border-bottom: 1px solid var(--border);
+  }
+  .faq-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 0;
+    font-size: 1.05rem;
+    font-weight: 500;
+    color: var(--text);
+    cursor: pointer;
+    list-style: none;
+    transition: color 0.2s;
+  }
+  .faq-summary:hover {
+    color: var(--accent);
+  }
+  .faq-summary::-webkit-details-marker {
+    display: none;
+  }
+  .faq-icon {
+    color: var(--text-muted);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .faq-item[open] .faq-icon {
+    transform: rotate(45deg); /* Se vuelve una X */
+  }
+  .faq-content {
+    padding: 0 0 1.5rem 0;
+    font-size: 0.9375rem;
+    color: var(--text-dim);
+    line-height: 1.7;
+    animation: faqFade 0.3s ease-out;
+  }
+  .faq-content p {
+    margin: 0;
+    max-width: 700px;
+  }
+  @keyframes faqFade {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Datasets teaser */
+  .section-cta { font-size: 0.8125rem; color: var(--accent); text-decoration: none; }
+  .section-cta:hover { text-decoration: underline; }
+  .datasets-teaser { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); }
+  .dt-card { padding: 1.25rem; background: var(--surface); color: var(--text); text-decoration: none; transition: background 0.15s; }
+  .dt-card:hover { background: var(--surface-2, var(--surface)); }
+  .dt-card h3 { font-size: 1rem; margin: 0 0 0.4rem; font-weight: 500; }
+  .dt-card p  { font-size: 0.8125rem; color: var(--text-muted); margin: 0; line-height: 1.5; }
+
+  /* API teaser */
+  .api-teaser { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center; }
+  @media (max-width: 800px) { .api-teaser { grid-template-columns: 1fr; } }
+  .api-teaser-text h2 { margin: 0.5rem 0 0.75rem; }
+  .api-teaser-text p  { color: var(--text-muted); margin: 0 0 1.25rem; line-height: 1.6; }
+  .api-snippet { background: var(--surface); border: 1px solid var(--border); padding: 1.25rem; font-size: 0.8125rem; line-height: 1.6; overflow-x: auto; }
+
+  /* FAQ more link */
+  .faq-more { text-align: center; margin-top: 1.5rem; }
+
+  /* Pricing strip */
+  .pricing-strip { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--surface); padding: 2.5rem var(--gutter, 1.5rem); }
+  .ps-inner { max-width: var(--container-max, 1200px); margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+  .ps-label { font-size: 0.625rem; color: var(--text-muted); letter-spacing: 0.05em; display: block; margin-bottom: 0.25rem; }
+  .ps-text p { margin: 0; font-size: 0.9375rem; }
+  .ps-actions { display: flex; gap: 0.75rem; }
+</style>

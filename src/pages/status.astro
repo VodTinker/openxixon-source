@@ -1,0 +1,746 @@
+---
+import Layout from '../layouts/Layout.astro'
+
+const LAUNCH = new Date('2026-04-20')
+const today  = new Date(); today.setHours(0, 0, 0, 0)
+const BARS   = 60
+
+const bars = Array.from({ length: BARS }, (_, i) => {
+  const d = new Date(today)
+  d.setDate(d.getDate() - (BARS - 1 - i))
+  return { date: d.toISOString().slice(0, 10), pre: d < LAUNCH }
+})
+
+const DATASETS = [
+  { id: 'calidad_aire',        label: 'Calidad del Aire' },
+  { id: 'incidencias_urbanas', label: 'Incidencias Urbanas' },
+  { id: 'poblacion',           label: 'Población' },
+  { id: 'inversiones',         label: 'Inversiones' },
+  { id: 'multas_trafico',      label: 'Multas de Tráfico' },
+]
+const ENDPOINTS = [
+  { id: 'ep_aire',        label: '/api/aire' },
+  { id: 'ep_incidencias', label: '/api/incidencias' },
+  { id: 'ep_poblacion',   label: '/api/poblacion' },
+  { id: 'ep_inversiones', label: '/api/inversiones' },
+  { id: 'ep_multas',      label: '/api/multas' },
+]
+---
+
+<Layout title="Estado — OpenXixón">
+<div class="sp-root">
+
+  <!-- PAGE HEADER -->
+  <div class="sp-top container">
+    <div class="breadcrumb">
+      <a href="/">OpenXixón</a>
+      <span>/</span>
+      <span>Estado</span>
+    </div>
+    <h1 class="sp-title">Estado del sistema</h1>
+    <p class="sp-domain mono">openxixon.vodtinker.dev</p>
+  </div>
+
+  <!-- HERO BANNER -->
+  <div class="sp-hero" id="sp-hero">
+    <div class="sp-hero-inner container">
+      <div class="sp-hero-status">
+        <span class="sp-hero-dot" id="sp-hero-dot"></span>
+        <span class="sp-hero-text" id="sp-hero-text">Comprobando estado…</span>
+      </div>
+      <div class="sp-hero-meta">
+        <span class="sp-updated mono" id="sp-updated"></span>
+        <button class="sp-refresh" id="sp-refresh">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M13.65 2.35A8 8 0 1 0 15 8h-1.5A6.5 6.5 0 1 1 8 1.5a6.46 6.46 0 0 1 4.54 1.86L10 6h5V1l-1.35 1.35z"/></svg>
+          Actualizar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="sp-body container">
+
+    <!-- DATASETS -->
+    <section class="sp-section">
+      <div class="sp-section-header">
+        <span class="sp-section-title">Datasets</span>
+        <span class="sp-section-ok" id="count-datasets"></span>
+      </div>
+      {DATASETS.map(svc => (
+        <div class="sp-row" data-id={svc.id}>
+          <div class="sp-row-top">
+            <div class="sp-row-left">
+              <span class="sp-dot sp-dot--loading" id={`dot-${svc.id}`}></span>
+              <div>
+                <div class="sp-name">{svc.label}</div>
+                <div class="sp-meta mono" id={`meta-${svc.id}`}></div>
+              </div>
+            </div>
+            <div class="sp-row-right">
+              <span class="sp-pct mono" id={`pct-${svc.id}`}></span>
+              <span class="sp-badge sp-badge--loading" id={`badge-${svc.id}`}></span>
+            </div>
+          </div>
+          <div class="sp-bars" id={`bars-${svc.id}`}>
+            {bars.map(b => (
+              <span class:list={['sp-bar', b.pre ? 'sp-bar--pre' : 'sp-bar--ok']} title={b.date}></span>
+            ))}
+          </div>
+          <div class="sp-bars-label">
+            <span class="mono">{BARS} días atrás</span>
+            <span class="mono">Hoy</span>
+          </div>
+        </div>
+      ))}
+    </section>
+
+    <!-- ENDPOINTS -->
+    <section class="sp-section">
+      <div class="sp-section-header">
+        <span class="sp-section-title">API Endpoints</span>
+        <span class="sp-section-ok" id="count-endpoints"></span>
+      </div>
+      {ENDPOINTS.map(ep => (
+        <div class="sp-row" data-id={ep.id}>
+          <div class="sp-row-top">
+            <div class="sp-row-left">
+              <span class="sp-dot sp-dot--loading" id={`dot-${ep.id}`}></span>
+              <div>
+                <div class="sp-name mono">{ep.label}</div>
+                <div class="sp-meta mono" id={`meta-${ep.id}`}></div>
+              </div>
+            </div>
+            <div class="sp-row-right">
+              <span class="sp-pct mono" id={`pct-${ep.id}`}></span>
+              <span class="sp-badge sp-badge--loading" id={`badge-${ep.id}`}></span>
+            </div>
+          </div>
+          <div class="sp-bars" id={`bars-${ep.id}`}>
+            {bars.map(b => (
+              <span class:list={['sp-bar', b.pre ? 'sp-bar--pre' : 'sp-bar--ok']} title={b.date}></span>
+            ))}
+          </div>
+          <div class="sp-bars-label">
+            <span class="mono">{BARS} días atrás</span>
+            <span class="mono">Hoy</span>
+          </div>
+        </div>
+      ))}
+    </section>
+
+    <!-- INCIDENTS -->
+    <section class="sp-section sp-section--last">
+      <div class="sp-section-header">
+        <span class="sp-section-title">Historial de incidencias</span>
+        <span class="sp-section-ok mono">últimos 30 días</span>
+      </div>
+      <div id="incident-list" style="display:none"></div>
+      <div class="sp-incident-empty" id="incident-empty">
+        <span class="sp-dot sp-dot--ok"></span>
+        Sin incidencias registradas en los últimos 30 días.
+      </div>
+    </section>
+
+  </div>
+</div>
+</Layout>
+
+<script>
+  type St = 'ok' | 'stale' | 'error'
+
+  interface DS { name: string; lastUpdate: string | null; status: St; latency: number; uptime7d: number | null }
+  interface EP { name: string; status: St; code: number; latency: number; uptime7d: number | null }
+  interface Inc { services: string[]; start: string; end: string | null; durationMin: number | null; resolved: boolean }
+  interface Payload { ts: string; overall: 'operational' | 'degraded'; datasets: DS[]; endpoints: EP[]; incidents: Inc[] }
+
+  const DS_ID: Record<string, string> = {
+    'Calidad del Aire':    'calidad_aire',
+    'Incidencias Urbanas': 'incidencias_urbanas',
+    'Población':           'poblacion',
+    'Inversiones':         'inversiones',
+    'Multas de Tráfico':   'multas_trafico',
+  }
+  const EP_ID: Record<string, string> = {
+    '/api/aire':        'ep_aire',
+    '/api/incidencias': 'ep_incidencias',
+    '/api/poblacion':   'ep_poblacion',
+    '/api/inversiones': 'ep_inversiones',
+    '/api/multas':      'ep_multas',
+  }
+  const LABEL: Record<St, string> = { ok: 'Operativo', stale: 'Desactualizado', error: 'Error' }
+
+  let countdown = 30
+  let tickId: ReturnType<typeof setInterval> | null = null
+
+  function rel(iso: string | null) {
+    if (!iso || !/^\d{4}-\d{2}/.test(iso)) return iso ?? '—'
+    const s = Math.floor((Date.now() - +new Date(iso)) / 1000)
+    if (s < 3600) return `hace ${Math.floor(s / 60)}m`
+    if (s < 86400) return `hace ${Math.floor(s / 3600)}h`
+    return `hace ${Math.floor(s / 86400)}d`
+  }
+
+  function applyDot(id: string, st: St) {
+    const el = document.getElementById(`dot-${id}`)
+    if (el) el.className = `sp-dot sp-dot--${st}`
+  }
+
+  function applyBadge(id: string, st: St) {
+    const el = document.getElementById(`badge-${id}`)
+    if (!el) return
+    el.textContent = LABEL[st]
+    el.className = `sp-badge sp-badge--${st}`
+  }
+
+  function applyMeta(id: string, text: string) {
+    const el = document.getElementById(`meta-${id}`)
+    if (el) el.textContent = text
+  }
+
+  function applyBars(id: string, st: St) {
+    const container = document.getElementById(`bars-${id}`)
+    if (!container) return
+    // Reset any previous error/stale bar
+    container.querySelectorAll<HTMLElement>('.sp-bar--error,.sp-bar--stale').forEach(b => {
+      b.className = 'sp-bar sp-bar--ok'
+    })
+    if (st === 'ok') return
+    const okBars = container.querySelectorAll<HTMLElement>('.sp-bar--ok')
+    const last = okBars[okBars.length - 1]
+    if (last) last.className = `sp-bar sp-bar--${st}`
+  }
+
+  function applyPct(id: string, uptime7d: number | null) {
+    const el = document.getElementById(`pct-${id}`)
+    if (!el) return
+    if (uptime7d != null) {
+      el.textContent = uptime7d >= 100 ? '100%' : `${uptime7d.toFixed(1)}%`
+      return
+    }
+    // Fallback: calcular desde barras cuando Gatus aún no tiene historial
+    const container = document.getElementById(`bars-${id}`)
+    if (!container) return
+    const active = container.querySelectorAll('.sp-bar:not(.sp-bar--pre)').length
+    if (active === 0) { el.textContent = ''; return }
+    const ok = container.querySelectorAll('.sp-bar--ok').length
+    const pct = (ok / active) * 100
+    el.textContent = pct >= 100 ? '100%' : `${pct.toFixed(1)}%`
+  }
+
+  function applyHero(overall: Payload['overall'], ts: string) {
+    const hero = document.getElementById('sp-hero')!
+    const dot  = document.getElementById('sp-hero-dot')!
+    const text = document.getElementById('sp-hero-text')!
+    const upd  = document.getElementById('sp-updated')!
+    const ok   = overall === 'operational'
+    hero.dataset.state = overall
+    dot.dataset.state  = ok ? 'ok' : 'error'
+    text.textContent   = ok ? 'Todos los sistemas operativos' : 'Degradación parcial detectada'
+    upd.textContent    = `Actualizado ${new Date(ts).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+    countdown = 30
+  }
+
+  function applyCount(elId: string, items: Array<{ status: St }>) {
+    const el = document.getElementById(elId)
+    if (!el) return
+    const ok = items.filter(i => i.status === 'ok').length
+    el.textContent = `${ok}/${items.length}`
+    el.className = `sp-section-ok mono ${ok === items.length ? 'ok' : 'warn'}`
+  }
+
+  function renderIncidents(incidents: Inc[]) {
+    const wrap = document.getElementById('incident-list')
+    const empty = document.getElementById('incident-empty')
+    if (!wrap || !empty) return
+
+    if (incidents.length === 0) {
+      wrap.style.display = 'none'
+      empty.style.display = ''
+      return
+    }
+
+    empty.style.display = 'none'
+    wrap.style.display = ''
+
+    const rows = incidents.map(inc => {
+      const date = new Date(inc.start).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
+      const time = new Date(inc.start).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+      const dur = inc.durationMin != null
+        ? inc.durationMin < 60
+          ? `${inc.durationMin} min`
+          : `${Math.floor(inc.durationMin / 60)}h ${inc.durationMin % 60}m`
+        : 'en curso'
+      const services = inc.services.join(', ')
+      const badge = inc.resolved ? 'resolved' : 'ongoing'
+      const badgeLabel = inc.resolved ? 'Resuelto' : 'En curso'
+
+      const row = document.createElement('div')
+      row.className = 'inc-row'
+
+      const meta = document.createElement('div')
+      meta.className = 'inc-meta'
+
+      const dateEl = document.createElement('span')
+      dateEl.className = 'inc-date mono'
+      dateEl.textContent = `${date} · ${time}`
+
+      const badgeEl = document.createElement('span')
+      badgeEl.className = `inc-badge inc-badge--${badge}`
+      badgeEl.textContent = badgeLabel
+
+      meta.append(dateEl, badgeEl)
+
+      const body = document.createElement('div')
+      body.className = 'inc-body'
+
+      const svcEl = document.createElement('span')
+      svcEl.className = 'inc-services'
+      svcEl.textContent = services
+
+      const durEl = document.createElement('span')
+      durEl.className = 'inc-dur mono'
+      durEl.textContent = dur
+
+      body.append(svcEl, durEl)
+      row.append(meta, body)
+      return row
+    })
+
+    wrap.replaceChildren(...rows)
+  }
+
+  async function load() {
+    const btn = document.getElementById('sp-refresh') as HTMLButtonElement
+    if (btn) btn.disabled = true
+    try {
+      const r = await fetch('/api/status')
+      if (!r.ok) throw new Error(`${r.status}`)
+      const d: Payload = await r.json()
+
+      applyHero(d.overall, d.ts)
+      applyCount('count-datasets', d.datasets)
+      applyCount('count-endpoints', d.endpoints)
+      renderIncidents(d.incidents ?? [])
+
+      d.datasets.forEach(ds => {
+        const id = DS_ID[ds.name]
+        if (!id) return
+        applyDot(id, ds.status)
+        applyBadge(id, ds.status)
+        applyBars(id, ds.status)
+        applyPct(id, ds.uptime7d)
+        const checked = ds.lastUpdate ? `comprobado ${rel(ds.lastUpdate)}` : 'sin datos'
+        applyMeta(id, `${checked} · ${ds.latency}ms`)
+      })
+
+      d.endpoints.forEach(ep => {
+        const id = EP_ID[ep.name]
+        if (!id) return
+        applyDot(id, ep.status)
+        applyBadge(id, ep.status)
+        applyBars(id, ep.status)
+        applyPct(id, ep.uptime7d)
+        applyMeta(id, ep.code > 0 ? `HTTP ${ep.code} · ${ep.latency}ms` : 'timeout')
+      })
+    } catch {
+      const hero = document.getElementById('sp-hero')
+      const text = document.getElementById('sp-hero-text')
+      if (hero) hero.dataset.state = 'degraded'
+      if (text) text.textContent = 'No se pudo conectar con el servidor'
+    } finally {
+      if (btn) btn.disabled = false
+    }
+  }
+
+  function tick() {
+    countdown--
+    const upd = document.getElementById('sp-updated')
+    if (upd && countdown > 0) {
+      const base = upd.dataset.base ?? upd.textContent ?? ''
+      if (!upd.dataset.base) upd.dataset.base = base
+    }
+    if (countdown <= 0) load()
+  }
+
+  document.getElementById('sp-refresh')!.addEventListener('click', load)
+  load()
+  if (tickId) clearInterval(tickId)
+  tickId = setInterval(tick, 1000)
+</script>
+
+<style>
+  /* ── Root ── */
+  .sp-root { min-height: 100vh; }
+
+  /* ── Top ── */
+  .sp-top {
+    padding-top: 4rem;
+    padding-bottom: 2.5rem;
+  }
+
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: .8125rem;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a { color: var(--text-dim); text-decoration: none; transition: color .15s; }
+  .breadcrumb a:hover { color: var(--text); }
+
+  .sp-title {
+    font-size: clamp(1.75rem, 4vw, 2.25rem);
+    font-weight: 600;
+    letter-spacing: -.025em;
+    margin: 0 0 .25rem;
+  }
+
+  .sp-domain {
+    font-size: .75rem;
+    color: var(--text-muted);
+    margin: 0;
+  }
+
+  /* ── Hero ── */
+  .sp-hero {
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    transition: background .4s;
+  }
+
+  .sp-hero[data-state="operational"] {
+    background: color-mix(in srgb, var(--mint) 7%, var(--surface));
+    border-color: color-mix(in srgb, var(--mint) 20%, var(--border));
+  }
+
+  .sp-hero[data-state="degraded"] {
+    background: color-mix(in srgb, var(--red) 7%, var(--surface));
+    border-color: color-mix(in srgb, var(--red) 20%, var(--border));
+  }
+
+  .sp-hero-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
+
+  .sp-hero-status {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .sp-hero-dot {
+    display: block;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    background: var(--surface-3);
+    transition: background .3s;
+  }
+
+  .sp-hero-dot[data-state="ok"] {
+    background: var(--mint);
+    box-shadow: 4px 4px 0 color-mix(in srgb, var(--mint) 35%, transparent);
+  }
+
+  .sp-hero-dot[data-state="error"] {
+    background: var(--red);
+    box-shadow: 4px 4px 0 color-mix(in srgb, var(--red) 35%, transparent);
+  }
+
+  .sp-hero-text {
+    font-size: 1.0625rem;
+    font-weight: 500;
+    letter-spacing: -.01em;
+  }
+
+  .sp-hero-meta {
+    display: flex;
+    align-items: center;
+    gap: .875rem;
+    flex-shrink: 0;
+  }
+
+  .sp-updated {
+    font-size: .6875rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .sp-refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .375rem .875rem;
+    font-size: .8125rem;
+    font-family: inherit;
+    font-weight: 500;
+    color: var(--text-dim);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+
+  .sp-refresh:hover:not(:disabled) {
+    color: var(--text);
+    border-color: var(--border-mid);
+    background: var(--surface-2);
+  }
+
+  .sp-refresh:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── Body ── */
+  .sp-body {
+    padding-top: 4rem;
+    padding-bottom: 8rem;
+  }
+
+  /* ── Sections ── */
+  .sp-section {
+    margin-bottom: 4rem;
+  }
+
+  .sp-section--last {
+    border-top: 1px solid var(--border);
+    padding-top: 2.5rem;
+    margin-bottom: 0;
+  }
+
+  .sp-section-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+  }
+
+  .sp-section-title {
+    font-size: .6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .sp-section-ok {
+    font-size: .6875rem;
+    color: var(--text-muted);
+  }
+
+  .sp-section-ok.ok   { color: var(--mint); }
+  .sp-section-ok.warn { color: var(--yellow); }
+
+  /* ── Service rows ── */
+  .sp-row {
+    padding: 1.5rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sp-row:first-of-type { border-top: 1px solid var(--border); }
+
+  .sp-row-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .sp-row-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-width: 0;
+  }
+
+  .sp-row-right {
+    display: flex;
+    align-items: center;
+    gap: .625rem;
+    flex-shrink: 0;
+  }
+
+  /* ── Dots ── */
+  .sp-dot {
+    display: block;
+    width: 10px;
+    height: 10px;
+    flex-shrink: 0;
+    transition: background .3s;
+  }
+
+  .sp-dot--ok      { background: var(--mint); }
+  .sp-dot--stale   { background: var(--yellow); }
+  .sp-dot--error   { background: var(--red); }
+  .sp-dot--loading {
+    background: var(--surface-3);
+    animation: blink 1.4s ease-in-out infinite;
+  }
+
+  /* ── Name / Meta ── */
+  .sp-name {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .sp-meta {
+    font-size: .6875rem;
+    color: var(--text-muted);
+    min-height: 1em;
+    margin-top: .2rem;
+  }
+
+  /* ── Uptime % ── */
+  .sp-pct {
+    font-size: .75rem;
+    color: var(--text-dim);
+    min-width: 3rem;
+    text-align: right;
+  }
+
+  /* ── Badges ── */
+  .sp-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .5625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    padding: .2rem .5rem;
+    line-height: 1.4;
+    white-space: nowrap;
+    min-width: 6.5rem;
+    text-align: center;
+  }
+
+  .sp-badge--ok      { color: var(--mint);    border: 1px solid color-mix(in srgb,var(--mint)   35%,transparent); background: color-mix(in srgb,var(--mint)   10%,transparent); }
+  .sp-badge--stale   { color: var(--yellow);  border: 1px solid color-mix(in srgb,var(--yellow) 35%,transparent); background: color-mix(in srgb,var(--yellow) 10%,transparent); }
+  .sp-badge--error   { color: var(--red);     border: 1px solid color-mix(in srgb,var(--red)    35%,transparent); background: color-mix(in srgb,var(--red)    10%,transparent); }
+  .sp-badge--loading { color: var(--text-muted); border: 1px solid var(--border); background: transparent; }
+
+  /* ── Uptime bars ── */
+  .sp-bars {
+    display: flex;
+    gap: 2px;
+    height: 34px;
+    align-items: stretch;
+  }
+
+  .sp-bar {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    transition: opacity .15s;
+  }
+
+  .sp-bar--ok    { background: var(--mint);    opacity: .7; }
+  .sp-bar--ok:hover { opacity: 1; }
+  .sp-bar--stale { background: var(--yellow);  opacity: .85; }
+  .sp-bar--error { background: var(--red);     opacity: .9; }
+  .sp-bar--pre   { background: var(--surface-2); }
+
+  .sp-bars-label {
+    display: flex;
+    justify-content: space-between;
+    margin-top: .5rem;
+  }
+
+  .sp-bars-label span {
+    font-size: .625rem;
+    color: var(--text-muted);
+  }
+
+  /* ── Incidents ── */
+  .sp-incident-empty {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    font-size: .9375rem;
+    color: var(--text-dim);
+    padding: .75rem 0;
+  }
+
+  .inc-row {
+    padding: 1.25rem 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+  }
+  .inc-row:first-child { border-top: 1px solid var(--border); }
+
+  .inc-meta {
+    display: flex;
+    align-items: center;
+    gap: .625rem;
+  }
+
+  .inc-date {
+    font-size: .6875rem;
+    color: var(--text-muted);
+  }
+
+  .inc-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .5rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    padding: .15rem .45rem;
+    line-height: 1.4;
+  }
+  .inc-badge--resolved {
+    color: var(--mint);
+    border: 1px solid color-mix(in srgb, var(--mint) 35%, transparent);
+    background: color-mix(in srgb, var(--mint) 10%, transparent);
+  }
+  .inc-badge--ongoing {
+    color: var(--red);
+    border: 1px solid color-mix(in srgb, var(--red) 35%, transparent);
+    background: color-mix(in srgb, var(--red) 10%, transparent);
+  }
+
+  .inc-body {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .inc-services {
+    font-size: .9375rem;
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .inc-dur {
+    font-size: .6875rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  /* ── Misc ── */
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: .25; }
+  }
+
+  /* ── Mobile ── */
+  @media (max-width: 600px) {
+    .sp-hero-inner { flex-direction: column; align-items: flex-start; gap: 1rem; }
+    .sp-row-right .sp-pct { display: none; }
+    .sp-badge { min-width: 0; }
+    .sp-bars { height: 20px; }
+  }
+</style>

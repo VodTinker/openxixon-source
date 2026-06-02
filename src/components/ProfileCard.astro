@@ -1,0 +1,208 @@
+---
+// Card-perfil "¿Para quién es?".
+// El sprite del avatar se genera con un patrón pixel determinista por seed.
+
+interface Props {
+  title: string;
+  description: string;
+  planLabel: string;     // ej. "FREE"
+  planTarget: string;    // anchor id ej. "plan-free"
+  seed?: number;
+  palette?: 'mint' | 'lavender' | 'mix';
+}
+
+const { title, description, planLabel, planTarget, seed = 1, palette = 'mint' } = Astro.props;
+
+type SpritePx = { x: number; y: number; tone: 'a' | 'b' | 'c' };
+
+// 8x8 sprite "humanoid" — silueta sencilla
+const HUMANOID = [
+  '00111100',
+  '00111100',
+  '00011000',
+  '01111110',
+  '11111111',
+  '11111111',
+  '01100110',
+  '01100110',
+];
+
+// Para "equipo", 3 mini-figuras juntas en 12x8
+const TEAM = [
+  '011001100110',
+  '011001100110',
+  '001000100010',
+  '011101110111',
+  '111111111111',
+  '111111111111',
+  '010001000100',
+  '010001000100',
+];
+
+const grid = palette === 'mix' ? TEAM : HUMANOID;
+
+const sprite: SpritePx[] = [];
+for (let y = 0; y < grid.length; y++) {
+  for (let x = 0; x < grid[y].length; x++) {
+    if (grid[y][x] === '1') {
+      const t = (x * 7 + y * 13 + seed * 5) % 9;
+      const tone: SpritePx['tone'] = t === 0 ? 'c' : t < 4 ? 'b' : 'a';
+      sprite.push({ x, y, tone });
+    }
+  }
+}
+
+const SCALE = 5;
+const W = grid[0].length * SCALE;
+const H = grid.length * SCALE;
+---
+
+<a class:list={['profile-card', `palette-${palette}`]} href={`#${planTarget}`} data-target={planTarget}>
+  <div class="profile-avatar">
+    <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} shape-rendering="crispEdges" aria-hidden="true">
+      {sprite.map(p => (
+        <rect class={`spx-${p.tone}`} x={p.x * SCALE} y={p.y * SCALE} width={SCALE} height={SCALE} />
+      ))}
+    </svg>
+  </div>
+
+  <div class="profile-body">
+    <h3 class="profile-title">{title}</h3>
+    <p class="profile-desc">{description}</p>
+  </div>
+
+  <div class="profile-footer">
+    <span class="profile-arrow mono">→</span>
+    <span class="profile-plan mono">{planLabel}</span>
+  </div>
+</a>
+
+<style>
+  .profile-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    padding: 1.5rem;
+    border: 1px dashed var(--border-strong);
+    background: var(--surface);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+    position: relative;
+  }
+  .profile-card:hover {
+    border-style: solid;
+    border-color: var(--accent);
+    transform: translate(-2px, -2px);
+    box-shadow: 4px 4px 0 var(--accent-strong);
+  }
+
+  .profile-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    transition: background 0.2s ease;
+  }
+  .profile-card:hover .profile-avatar {
+    background: color-mix(in srgb, var(--accent) 8%, var(--bg-1));
+  }
+
+  /* Palettes */
+  .palette-mint .spx-a { fill: var(--mint); }
+  .palette-mint .spx-b { fill: var(--accent); }
+  .palette-mint .spx-c { fill: var(--lavender); }
+
+  .palette-lavender .spx-a { fill: var(--lavender); }
+  .palette-lavender .spx-b { fill: var(--accent); }
+  .palette-lavender .spx-c { fill: var(--mint); }
+
+  .palette-mix .spx-a { fill: var(--accent); }
+  .palette-mix .spx-b { fill: var(--mint); }
+  .palette-mix .spx-c { fill: var(--lavender); }
+
+  .profile-body { flex: 1; }
+  .profile-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .profile-desc {
+    font-size: 0.875rem;
+    color: var(--text-dim);
+    line-height: 1.55;
+  }
+
+  .profile-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding-top: 0.85rem;
+    border-top: 1px dashed var(--border);
+  }
+  .profile-arrow {
+    color: var(--accent);
+    font-size: 1rem;
+    transition: transform 0.2s ease, color 0.2s ease;
+  }
+  .profile-plan {
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    font-weight: 700;
+    transition: color 0.2s ease, text-shadow 0.2s ease;
+  }
+  .profile-card:hover .profile-arrow { transform: translateX(4px); color: var(--mint); }
+  .profile-card:hover .profile-plan {
+    color: var(--lavender);
+    text-shadow: 0 0 12px var(--accent-glow);
+  }
+
+  /* Avatar "respira" en hover */
+  .profile-card:hover .profile-avatar svg {
+    animation: breathe 0.6s steps(3);
+  }
+  @keyframes breathe {
+    0%, 100% { filter: none; }
+    33% { filter: brightness(1.4) saturate(1.2); }
+    66% { filter: brightness(0.85); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .profile-card { transition: none; }
+    .profile-card:hover { transform: none; }
+    .profile-card:hover .profile-avatar svg { animation: none; }
+  }
+</style>
+
+<script>
+  function initProfileCards() {
+    const cards = document.querySelectorAll<HTMLAnchorElement>('.profile-card');
+    cards.forEach((card) => {
+      if (card.dataset.bound === '1') return;
+      card.dataset.bound = '1';
+      card.addEventListener('click', (e) => {
+        const targetId = card.dataset.target;
+        if (!targetId) return;
+        const el = document.getElementById(targetId);
+        if (!el) return;
+        e.preventDefault();
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('plan-flash');
+        setTimeout(() => el.classList.remove('plan-flash'), 1200);
+      });
+    });
+  }
+
+  document.addEventListener('astro:page-load', initProfileCards);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initProfileCards);
+  } else {
+    initProfileCards();
+  }
+</script>

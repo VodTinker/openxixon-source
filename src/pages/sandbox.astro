@@ -1,0 +1,1019 @@
+---
+import Layout from '../layouts/Layout.astro'
+import { getSession } from '../lib/supabase'
+
+const { user } = await getSession(Astro.cookies, Astro.request)
+---
+
+<Layout
+  title="Sandbox"
+  description="Prueba la API de OpenXixón directamente en el navegador. Datos reales o mock, sin instalar nada."
+>
+  <div class="sb-wrap">
+
+    <!-- Header -->
+    <div class="sb-header lazy-reveal">
+      <div class="sb-header-text">
+        <div class="sb-badge mono">API PLAYGROUND</div>
+        <h1 class="sb-title">Sandbox</h1>
+        <p class="sb-subtitle">
+          Prueba cualquier endpoint en el navegador. Sin instalar nada.
+        </p>
+      </div>
+    </div>
+
+    <!-- Main playground layout -->
+    <div class="sb-layout">
+
+      <!-- ── LEFT PANEL ── -->
+      <div class="sb-left">
+
+        <!-- Endpoint selector -->
+        <div class="sb-section">
+          <label class="sb-label" for="sb-endpoint">Endpoint</label>
+          <div class="sb-select-wrap">
+            <select id="sb-endpoint" class="sb-select">
+              <option value="aire">GET  /api/aire</option>
+              <option value="incidencias">GET  /api/incidencias</option>
+              <option value="multas">GET  /api/multas</option>
+              <option value="poblacion">GET  /api/poblacion</option>
+              <option value="inversiones">GET  /api/inversiones</option>
+            </select>
+            <svg class="sb-select-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+          </div>
+          <p id="sb-endpoint-desc" class="sb-endpoint-desc">Lecturas de calidad del aire por estaciones en Gijón.</p>
+        </div>
+
+        <!-- Dynamic params -->
+        <div class="sb-section" id="sb-params-section">
+          <label class="sb-label">Parámetros <span class="sb-optional">opcionales</span></label>
+          <div id="sb-params" class="sb-params-grid"></div>
+        </div>
+
+        <!-- Auth -->
+        <div class="sb-section">
+          <label class="sb-label" for="sb-apikey">
+            API Key
+            <span class="sb-optional">opcional — amplía límites</span>
+          </label>
+          <input
+            id="sb-apikey"
+            class="sb-input"
+            type="password"
+            placeholder="ox_live_…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          {user && (
+            <button id="sb-use-my-key" class="sb-use-key-btn" type="button">
+              Usar mi API key
+            </button>
+          )}
+          <div id="sb-anon-limit-info" class="sb-limit-info" style="display: none;">
+            Límite sin clave: <strong id="sb-anon-remaining">3/3</strong> peticiones en modo Real.
+          </div>
+        </div>
+
+        <!-- Mode toggle + Run -->
+        <div class="sb-run-row">
+          <div class="sb-mode-toggle" role="group" aria-label="Modo de datos">
+            <button id="sb-mode-mock" class="sb-mode-btn active" type="button" data-mode="mock">Mock</button>
+            <button id="sb-mode-real" class="sb-mode-btn" type="button" data-mode="real">Real</button>
+          </div>
+          <button id="sb-run" class="sb-run-btn" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            Run
+          </button>
+        </div>
+
+        <!-- Dynamic Limits Banner -->
+        <div id="sb-limits-banner" class="sb-limits-banner">
+          <svg class="sb-banner-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+          <span id="sb-banner-text">Modo Mock: Datos simulados ilimitados.</span>
+        </div>
+
+        <!-- Rate limit badge (shown only in real mode after a request) -->
+        <div id="sb-rl-badge" class="sb-rl-badge" hidden>
+          <div class="sb-rl-bar-wrap">
+            <div id="sb-rl-bar" class="sb-rl-bar"></div>
+          </div>
+          <span id="sb-rl-text" class="sb-rl-text mono"></span>
+        </div>
+
+      </div><!-- /sb-left -->
+
+      <!-- ── RIGHT PANEL ── -->
+      <div class="sb-right">
+
+        <!-- Curl preview -->
+        <div class="sb-panel sb-curl-panel">
+          <div class="sb-panel-header">
+            <span class="sb-panel-label mono">curl</span>
+            <button id="sb-copy-curl" class="sb-copy-btn" type="button" title="Copiar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>
+              <span id="sb-copy-curl-label">Copiar</span>
+            </button>
+          </div>
+          <pre id="sb-curl-pre" class="sb-curl-pre"><code id="sb-curl-code"></code></pre>
+        </div>
+
+        <!-- Response -->
+        <div class="sb-panel sb-response-panel">
+          <div class="sb-panel-header">
+            <div class="sb-response-meta">
+              <span class="sb-panel-label mono">response</span>
+              <span id="sb-status-badge" class="sb-status-badge" hidden></span>
+              <span id="sb-time-badge" class="sb-time-badge mono" hidden></span>
+            </div>
+            <button id="sb-copy-json" class="sb-copy-btn" type="button" title="Copiar JSON" hidden>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>
+              <span id="sb-copy-json-label">Copiar</span>
+            </button>
+          </div>
+          <div id="sb-response-body" class="sb-response-body">
+            <div class="sb-empty-state">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" opacity=".25"><path d="M8 5v14l11-7z"/></svg>
+              <p>Pulsa <strong>Run</strong> para ejecutar</p>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /sb-right -->
+    </div><!-- /sb-layout -->
+  </div><!-- /sb-wrap -->
+</Layout>
+
+<script>
+// ─── Config de endpoints ────────────────────────────────────────────────────
+const BASE = 'https://openxixon.vodtinker.dev'
+
+const ENDPOINTS: Record<string, {
+  path: string
+  desc: string
+  params: { key: string; label: string; placeholder: string; type?: string }[]
+  mock: unknown
+}> = {
+  aire: {
+    path: '/api/aire',
+    desc: 'Lecturas de calidad del aire por estaciones en Gijón.',
+    params: [],
+    mock: [
+      { fecha: '2026-06-01T01:00:00+00:00', estacion: 1,  no2: 15, o3: 23, pm10: null, pm25: null, co: null,  latitud: 43.529806, longitud: -5.673428 },
+      { fecha: '2026-06-01T01:00:00+00:00', estacion: 10, no2: 2,  o3: 23, pm10: null, pm25: null, co: null,  latitud: 43.517315, longitud: -5.672499 },
+      { fecha: '2026-06-01T01:00:00+00:00', estacion: 11, no2: 6,  o3: 22, pm10: null, pm25: null, co: 0.06, latitud: 43.537183, longitud: -5.664561 },
+    ],
+  },
+  incidencias: {
+    path: '/api/incidencias',
+    desc: 'Incidencias urbanas registradas: tipo, estado y ubicación.',
+    params: [
+      { key: 'tipo',   label: 'tipo',   placeholder: 'Alumbrado' },
+      { key: 'estado', label: 'estado', placeholder: 'Creada' },
+      { key: 'limit',  label: 'limit',  placeholder: '10', type: 'number' },
+    ],
+    mock: [
+      { codigo: 'INCI61989', tipo: 'Alumbrado',   estado: 'En inspección', latitud: 43.529705, longitud: -5.696221, fecha: '2026-05-29' },
+      { codigo: 'INCI61990', tipo: 'Zonas verdes', estado: 'Creada',       latitud: 43.525153, longitud: -5.644438, fecha: '2026-05-29' },
+      { codigo: 'INCI61991', tipo: 'Conservación', estado: 'Resuelta',     latitud: 43.531200, longitud: -5.660100, fecha: '2026-05-28' },
+      { codigo: 'INCI61992', tipo: 'Saneamiento',  estado: 'Creada',       latitud: 43.520000, longitud: -5.680000, fecha: '2026-05-28' },
+      { codigo: 'INCI61993', tipo: 'Alumbrado',    estado: 'En inspección', latitud: 43.535000, longitud: -5.655000, fecha: '2026-05-27' },
+    ],
+  },
+  multas: {
+    path: '/api/multas',
+    desc: 'Multas de tráfico por año y tipo de calificación.',
+    params: [
+      { key: 'anio',         label: 'anio',         placeholder: '2023', type: 'number' },
+      { key: 'calificacion', label: 'calificacion', placeholder: 'Leve' },
+      { key: 'limit',        label: 'limit',        placeholder: '10',   type: 'number' },
+    ],
+    mock: [
+      { anio: 2023, calificacion: 'Leve',  total: 8421 },
+      { anio: 2023, calificacion: 'Grave', total: 1923 },
+      { anio: 2022, calificacion: 'Leve',  total: 7810 },
+      { anio: 2022, calificacion: 'Grave', total: 1740 },
+    ],
+  },
+  poblacion: {
+    path: '/api/poblacion',
+    desc: 'Padrón municipal de Gijón, total y desglose por barrios.',
+    params: [
+      { key: 'barrios', label: 'barrios', placeholder: '1 (activa desglose)', type: 'number' },
+    ],
+    mock: [
+      { total: 271261, hombres: 129680, mujeres: 141581, fecha: '2024-01-01' },
+    ],
+  },
+  inversiones: {
+    path: '/api/inversiones',
+    desc: 'Contratos y licitaciones públicas del Ayuntamiento de Gijón.',
+    params: [
+      { key: 'estado',  label: 'estado',  placeholder: 'Adjudicado' },
+      { key: 'entidad', label: 'entidad', placeholder: 'Ayuntamiento' },
+      { key: 'limit',   label: 'limit',   placeholder: '10', type: 'number' },
+    ],
+    mock: [
+      { id: 'INV-2024-001', descripcion: 'Renovación alumbrado público zona oeste', importe: 480000, estado: 'Adjudicado', entidad: 'Ayuntamiento de Gijón', fecha: '2024-03-15' },
+      { id: 'INV-2024-002', descripcion: 'Mantenimiento parques y jardines 2024',   importe: 320000, estado: 'Adjudicado', entidad: 'Ayuntamiento de Gijón', fecha: '2024-02-10' },
+      { id: 'INV-2024-003', descripcion: 'Señalización vial inteligente',            importe: 210000, estado: 'En licitación', entidad: 'Ayuntamiento de Gijón', fecha: '2024-04-01' },
+    ],
+  },
+}
+
+// ─── State ──────────────────────────────────────────────────────────────────
+let mode: 'mock' | 'real' = 'mock'
+let currentEndpoint = 'aire'
+let lastJson: unknown = null
+let anonRealRequests = parseInt(localStorage.getItem('sb_anon_real_reqs') || '0')
+const ANON_LIMIT = 3
+
+// ─── DOM refs ───────────────────────────────────────────────────────────────
+const sel         = () => document.getElementById('sb-endpoint')         as HTMLSelectElement
+const descEl      = () => document.getElementById('sb-endpoint-desc')    as HTMLElement
+const paramsEl    = () => document.getElementById('sb-params')           as HTMLElement
+const apikeyEl    = () => document.getElementById('sb-apikey')           as HTMLInputElement
+const runBtn      = () => document.getElementById('sb-run')              as HTMLButtonElement
+const curlCode    = () => document.getElementById('sb-curl-code')        as HTMLElement
+const respBody    = () => document.getElementById('sb-response-body')    as HTMLElement
+const statusBadge = () => document.getElementById('sb-status-badge')     as HTMLElement
+const timeBadge   = () => document.getElementById('sb-time-badge')       as HTMLElement
+const rlBadge     = () => document.getElementById('sb-rl-badge')         as HTMLElement
+const rlBar       = () => document.getElementById('sb-rl-bar')           as HTMLElement
+const rlText      = () => document.getElementById('sb-rl-text')          as HTMLElement
+const copyJsonBtn = () => document.getElementById('sb-copy-json')        as HTMLButtonElement
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function getParams(): Record<string, string> {
+  const out: Record<string, string> = {}
+  paramsEl().querySelectorAll<HTMLInputElement>('.sb-param-input').forEach(input => {
+    if (input.value.trim()) out[input.dataset.key!] = input.value.trim()
+  })
+  return out
+}
+
+function buildUrl(): string {
+  const cfg = ENDPOINTS[currentEndpoint]
+  const params = getParams()
+  const qs = new URLSearchParams(params).toString()
+  return `${BASE}${cfg.path}${qs ? '?' + qs : ''}`
+}
+
+function buildCurl(): string {
+  const url = buildUrl()
+  const key = apikeyEl().value.trim()
+  const auth = key ? `\\\n  -H "Authorization: Bearer ${key}" ` : ''
+  return `curl -s ${auth}\\\n  "${url}"`
+}
+
+function updateCurl() {
+  curlCode().textContent = buildCurl()
+}
+
+function updateAnonLimitInfo() {
+  const infoEl = document.getElementById('sb-anon-limit-info')
+  const remainingEl = document.getElementById('sb-anon-remaining')
+  const isUserLoggedIn = !!document.getElementById('sb-use-my-key')
+  const key = apikeyEl().value.trim()
+
+  if (isUserLoggedIn || key) {
+    if (infoEl) infoEl.style.display = 'none'
+  } else {
+    if (infoEl) infoEl.style.display = 'block'
+    if (remainingEl) {
+      const remaining = Math.max(0, ANON_LIMIT - anonRealRequests)
+      remainingEl.textContent = `${remaining}/${ANON_LIMIT}`
+      if (remaining === 0) {
+        remainingEl.style.color = '#e05252'
+      } else {
+        remainingEl.style.color = 'var(--accent)'
+      }
+    }
+  }
+  updateLimitsBanner()
+}
+
+function updateLimitsBanner() {
+  const banner = document.getElementById('sb-limits-banner')
+  const bannerText = document.getElementById('sb-banner-text')
+  if (!banner || !bannerText) return
+
+  const isUserLoggedIn = !!document.getElementById('sb-use-my-key')
+  const key = apikeyEl().value.trim()
+
+  if (mode === 'mock') {
+    banner.className = 'sb-limits-banner'
+    bannerText.innerHTML = '<strong>Modo Mock:</strong> Peticiones ilimitadas (datos estáticos).'
+  } else {
+    // Real mode
+    if (key || isUserLoggedIn) {
+      banner.className = 'sb-limits-banner alert'
+      bannerText.innerHTML = '<strong>Límite:</strong> 30 peticiones/minuto (API Key activa).'
+    } else {
+      const remaining = Math.max(0, ANON_LIMIT - anonRealRequests)
+      if (remaining === 0) {
+        banner.className = 'sb-limits-banner warning'
+        bannerText.innerHTML = '<strong>Límite agotado:</strong> 0/3 peticiones modo Real restantes.'
+      } else {
+        banner.className = 'sb-limits-banner alert'
+        bannerText.innerHTML = `<strong>Límite sin clave:</strong> Quedan <strong>${remaining}/${ANON_LIMIT}</strong> peticiones en modo Real.`
+      }
+    }
+  }
+}
+
+function renderParams() {
+  const cfg = ENDPOINTS[currentEndpoint]
+  descEl().textContent = cfg.desc
+  const grid = paramsEl()
+  grid.innerHTML = ''
+  if (cfg.params.length === 0) {
+    grid.innerHTML = '<span class="sb-no-params mono">— sin parámetros —</span>'
+  } else {
+    cfg.params.forEach(p => {
+      const wrap = document.createElement('div')
+      wrap.className = 'sb-param-row'
+      wrap.innerHTML = `
+        <label class="sb-param-label mono" for="sb-param-${p.key}">${p.key}</label>
+        <input
+          id="sb-param-${p.key}"
+          class="sb-input sb-param-input"
+          type="${p.type || 'text'}"
+          placeholder="${p.placeholder}"
+          data-key="${p.key}"
+          autocomplete="off"
+        />
+      `
+      grid.appendChild(wrap)
+    })
+    // Re-attach change listeners
+    grid.querySelectorAll<HTMLInputElement>('.sb-param-input').forEach(inp => {
+      inp.addEventListener('input', updateCurl)
+    })
+  }
+  updateCurl()
+}
+
+// ─── JSON syntax highlight ────────────────────────────────────────────────────
+function highlight(json: string): string {
+  return json
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(
+      /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+      match => {
+        if (/^"/.test(match)) {
+          return /:$/.test(match)
+            ? `<span class="jk">${match}</span>`
+            : `<span class="js">${match}</span>`
+        }
+        if (/true|false/.test(match)) return `<span class="jb">${match}</span>`
+        if (/null/.test(match))       return `<span class="jn">${match}</span>`
+        return `<span class="jnum">${match}</span>`
+      }
+    )
+}
+
+function showJson(data: unknown) {
+  const str = JSON.stringify(data, null, 2)
+  lastJson = data
+  respBody().innerHTML = `<pre class="sb-json-pre"><code>${highlight(str)}</code></pre>`
+  copyJsonBtn().hidden = false
+  document.getElementById('sb-copy-json-label')!.textContent = 'Copiar'
+}
+
+function showError(msg: string, detail?: string) {
+  respBody().innerHTML = `
+    <div class="sb-error-state">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" opacity=".6"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+      <p>${msg}</p>
+      ${detail ? `<pre class="sb-error-detail mono">${detail}</pre>` : ''}
+    </div>
+  `
+  copyJsonBtn().hidden = true
+}
+
+function setStatusBadge(code: number, ms: number) {
+  const b = statusBadge()
+  b.hidden = false
+  b.textContent = String(code)
+  b.className = 'sb-status-badge ' + (code < 300 ? 'ok' : code < 500 ? 'warn' : 'err')
+  timeBadge().hidden = false
+  timeBadge().textContent = `${ms}ms`
+}
+
+function updateRlBadge(remaining: number, limit: number) {
+  const pct = Math.max(0, Math.min(100, (remaining / limit) * 100))
+  rlBar().style.width = pct + '%'
+  rlBar().className = 'sb-rl-bar' + (pct < 20 ? ' low' : pct < 50 ? ' mid' : '')
+  rlText().textContent = `${remaining} / ${limit} peticiones restantes`
+  rlBadge().hidden = false
+}
+
+// ─── Run handler ─────────────────────────────────────────────────────────────
+async function runRequest() {
+  const btn = runBtn()
+  btn.disabled = true
+  btn.classList.add('loading')
+  btn.innerHTML = `
+    <svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z"/></svg>
+    Running…
+  `
+
+  statusBadge().hidden = true
+  timeBadge().hidden = true
+  copyJsonBtn().hidden = true
+  respBody().innerHTML = '<div class="sb-loading"><span class="sb-dot"></span><span class="sb-dot"></span><span class="sb-dot"></span></div>'
+
+  try {
+    if (mode === 'mock') {
+      await new Promise(r => setTimeout(r, 280)) // simula latencia
+      showJson(ENDPOINTS[currentEndpoint].mock)
+      setStatusBadge(200, 280)
+      rlBadge().hidden = true
+    } else {
+      const url = buildUrl()
+      const key = apikeyEl().value.trim()
+      const isUserLoggedIn = !!document.getElementById('sb-use-my-key')
+
+      // Check anonymous sandbox limit
+      if (!key && !isUserLoggedIn) {
+        if (anonRealRequests >= ANON_LIMIT) {
+          showError(
+            '¡Límite del Sandbox alcanzado!',
+            'Has agotado tus 3 peticiones en modo Real sin API Key.\n\nRegistrate gratis para obtener tu API Key y desbloquear hasta 30 peticiones/minuto, o introduce una API Key si ya tienes una.'
+          )
+          const errState = respBody().querySelector('.sb-error-state')
+          if (errState) {
+            const authDiv = document.createElement('div')
+            authDiv.style.marginTop = '1.5rem'
+            authDiv.style.display = 'flex'
+            authDiv.style.gap = '0.75rem'
+            authDiv.innerHTML = `
+              <a href="/registro" class="sb-run-btn" style="text-decoration:none; display:inline-flex; align-items:center; height:36px; padding:0 1rem; font-size:0.8rem; color:#000; font-weight:700;">Registrarse gratis</a>
+              <a href="/login" class="sb-copy-btn" style="text-decoration:none; display:inline-flex; align-items:center; height:36px; padding:0 1rem; font-size:0.8rem; font-weight:500;">Iniciar sesión</a>
+            `
+            errState.appendChild(authDiv)
+          }
+          return
+        }
+      }
+
+      const headers: Record<string, string> = {}
+      if (key) headers['Authorization'] = `Bearer ${key}`
+
+      const t0 = performance.now()
+      const res = await fetch(url, { headers, credentials: 'omit' })
+      const ms = Math.round(performance.now() - t0)
+
+      setStatusBadge(res.status, ms)
+
+      // Rate limit headers
+      const rlRemaining = parseInt(res.headers.get('x-ratelimit-remaining') || '0')
+      const rlLimit     = parseInt(res.headers.get('x-ratelimit-limit')     || '30')
+      if (!isNaN(rlRemaining)) updateRlBadge(rlRemaining, rlLimit)
+
+      if (!res.ok) {
+        const text = await res.text()
+        showError(`Error ${res.status}`, text.slice(0, 300))
+      } else {
+        const data = await res.json()
+        showJson(data)
+
+        // Increment and save counter for anonymous real requests
+        if (!key && !isUserLoggedIn) {
+          anonRealRequests++
+          localStorage.setItem('sb_anon_real_reqs', String(anonRealRequests))
+          updateAnonLimitInfo()
+        }
+      }
+    }
+  } catch (e) {
+    showError('Error de red', String(e))
+    statusBadge().hidden = true
+  } finally {
+    btn.disabled = false
+    btn.classList.remove('loading')
+    btn.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      Run
+    `
+  }
+}
+
+// ─── Copy helpers ─────────────────────────────────────────────────────────────
+function copyText(text: string, labelId: string) {
+  navigator.clipboard.writeText(text).then(() => {
+    const el = document.getElementById(labelId)
+    if (el) {
+      el.textContent = '¡Copiado!'
+      setTimeout(() => { el.textContent = 'Copiar' }, 1800)
+    }
+  })
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+function init() {
+  renderParams()
+  updateAnonLimitInfo()
+
+  sel().addEventListener('change', () => {
+    currentEndpoint = sel().value
+    renderParams()
+  })
+
+  apikeyEl().addEventListener('input', () => {
+    updateCurl()
+    updateAnonLimitInfo()
+  })
+
+  document.querySelectorAll<HTMLButtonElement>('.sb-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      mode = btn.dataset.mode as 'mock' | 'real'
+      document.querySelectorAll('.sb-mode-btn').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      if (mode === 'mock') rlBadge().hidden = true
+      updateLimitsBanner()
+    })
+  })
+
+  runBtn().addEventListener('click', runRequest)
+
+  document.getElementById('sb-copy-curl')?.addEventListener('click', () => {
+    copyText(buildCurl(), 'sb-copy-curl-label')
+  })
+
+  copyJsonBtn().addEventListener('click', () => {
+    if (lastJson) copyText(JSON.stringify(lastJson, null, 2), 'sb-copy-json-label')
+  })
+
+  const myKeyBtn = document.getElementById('sb-use-my-key')
+  if (myKeyBtn) {
+    myKeyBtn.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/user-key')
+        if (res.ok) {
+          const { key } = await res.json()
+          apikeyEl().value = key
+          updateCurl()
+          updateAnonLimitInfo()
+        }
+      } catch { /* silently fail */ }
+    })
+  }
+}
+
+document.addEventListener('astro:page-load', init)
+</script>
+
+<style>
+  /* ── Layout ──────────────────────────────────────────────────────────────── */
+  .sb-wrap {
+    max-width: var(--container-max);
+    margin: 0 auto;
+    padding: 0 var(--gutter) 5rem;
+  }
+
+  .sb-header {
+    padding: 3.5rem 0 2.5rem;
+  }
+
+  .sb-badge {
+    display: inline-block;
+    font-size: 0.625rem;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    padding: 0.2rem 0.6rem;
+    margin-bottom: 1rem;
+  }
+
+  .sb-title {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    margin: 0 0 0.5rem;
+    line-height: 1.1;
+  }
+
+  .sb-subtitle {
+    color: var(--text-dim);
+    font-size: 1.0625rem;
+    margin: 0;
+  }
+
+  .sb-layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  @media (max-width: 900px) {
+    .sb-layout { grid-template-columns: 1fr; }
+  }
+
+  /* ── Left panel ──────────────────────────────────────────────────────────── */
+  .sb-left {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    position: sticky;
+    top: 80px;
+  }
+
+  .sb-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    padding: 1.1rem 1.25rem;
+  }
+
+  .sb-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .sb-optional {
+    font-size: 0.7rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--text-dim);
+    opacity: 0.6;
+  }
+
+  .sb-select-wrap {
+    position: relative;
+  }
+
+  .sb-select {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-mono, monospace);
+    font-size: 0.875rem;
+    padding: 0.55rem 2.2rem 0.55rem 0.75rem;
+    appearance: none;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .sb-select:focus { outline: none; border-color: var(--accent); }
+
+  .sb-select-icon {
+    position: absolute;
+    right: 0.6rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+    pointer-events: none;
+  }
+
+  .sb-endpoint-desc {
+    font-size: 0.8125rem;
+    color: var(--text-dim);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .sb-params-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .sb-param-row {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .sb-param-label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  .sb-no-params {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    opacity: 0.5;
+    padding: 0.25rem 0;
+  }
+
+  .sb-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.875rem;
+    padding: 0.5rem 0.75rem;
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+  }
+  .sb-input:focus { outline: none; border-color: var(--accent); }
+  .sb-input::placeholder { color: var(--text-dim); opacity: 0.45; }
+
+  .sb-use-key-btn {
+    font-size: 0.75rem;
+    color: var(--accent);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-align: left;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .sb-use-key-btn:hover { opacity: 0.75; }
+
+  .sb-run-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+
+  .sb-mode-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .sb-mode-btn {
+    flex: 1;
+    padding: 0 1rem;
+    height: 44px;
+    background: var(--card-bg);
+    border: none;
+    color: var(--text-dim);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .sb-mode-btn:not(:last-child) { border-right: 1px solid var(--border); }
+  .sb-mode-btn.active {
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    color: var(--accent);
+  }
+  .sb-mode-btn:hover:not(.active) { background: var(--surface); color: var(--text); }
+
+  .sb-run-btn {
+    flex: 1;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .sb-run-btn:hover:not(:disabled) { opacity: 0.85; transform: translateY(-1px); }
+  .sb-run-btn:active { transform: translateY(0); }
+  .sb-run-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { animation: spin 0.8s linear infinite; }
+
+  /* Rate limit badge */
+  .sb-rl-badge {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    padding: 0.75rem 1.25rem;
+  }
+
+  .sb-rl-bar-wrap {
+    height: 3px;
+    background: var(--border);
+    overflow: hidden;
+  }
+
+  .sb-rl-bar {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.4s ease, background 0.3s;
+  }
+  .sb-rl-bar.mid { background: var(--yellow, #f5a623); }
+  .sb-rl-bar.low { background: var(--red, #e05252); }
+
+  .sb-rl-text {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+
+  /* ── Right panel ──────────────────────────────────────────────────────────── */
+  .sb-right {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+  }
+
+  .sb-panel {
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    overflow: hidden;
+  }
+
+  .sb-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface) 60%, transparent);
+  }
+
+  .sb-panel-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  .sb-response-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .sb-status-badge {
+    font-size: 0.7rem;
+    font-family: var(--font-mono, monospace);
+    font-weight: 700;
+    padding: 0.15rem 0.45rem;
+    letter-spacing: 0.04em;
+  }
+  .sb-status-badge.ok   { background: color-mix(in srgb, #00d4aa 15%, transparent); color: #00d4aa; }
+  .sb-status-badge.warn { background: color-mix(in srgb, #f5a623 15%, transparent); color: #f5a623; }
+  .sb-status-badge.err  { background: color-mix(in srgb, #e05252 15%, transparent); color: #e05252; }
+
+  .sb-time-badge {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+  }
+
+  .sb-copy-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    padding: 0.25rem 0.6rem;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .sb-copy-btn:hover { color: var(--text); border-color: var(--border-strong); }
+
+  /* Curl panel */
+  .sb-curl-pre {
+    margin: 0;
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.8125rem;
+    line-height: 1.7;
+    color: var(--text);
+    white-space: pre;
+  }
+
+  /* Response panel */
+  .sb-response-body {
+    min-height: 280px;
+    max-height: 600px;
+    overflow: auto;
+    position: relative;
+  }
+
+  .sb-empty-state,
+  .sb-error-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    min-height: 280px;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    text-align: center;
+    padding: 2rem;
+  }
+  .sb-error-state { color: #e05252; }
+  .sb-error-detail {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin: 0;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .sb-json-pre {
+    margin: 0;
+    padding: 1rem 1.25rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.8125rem;
+    line-height: 1.75;
+    overflow: visible;
+    white-space: pre;
+  }
+
+  /* JSON syntax colors */
+  :global(.jk)   { color: var(--accent); }
+  :global(.js)   { color: #a8e6cf; }
+  :global(.jnum) { color: #f5a623; }
+  :global(.jb)   { color: #d4a5ff; }
+  :global(.jn)   { color: #e05252; opacity: .7; }
+
+  /* Loading dots */
+  .sb-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 280px;
+  }
+  .sb-dot {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: blink 1.2s infinite both;
+  }
+  .sb-dot:nth-child(2) { animation-delay: 0.2s; }
+  .sb-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes blink {
+    0%, 80%, 100% { opacity: 0.15; transform: scale(0.8); }
+    40%            { opacity: 1;    transform: scale(1);   }
+  }
+
+  /* Sleek limit warning for anonymous sandbox requests */
+  .sb-limit-info {
+    font-size: 0.725rem;
+    color: var(--text-dim);
+    opacity: 0.85;
+    border-top: 1px dashed var(--border);
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    line-height: 1.4;
+  }
+  .sb-limit-info strong {
+    font-family: var(--font-mono, monospace);
+  }
+
+  /* Sleek Limits Banner */
+  .sb-limits-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    padding: 0.65rem 0.85rem;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 0.75rem;
+    transition: all 0.2s ease;
+  }
+  .sb-limits-banner strong {
+    color: var(--text);
+  }
+  .sb-limits-banner.alert {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+    color: var(--accent);
+  }
+  .sb-limits-banner.alert strong {
+    color: var(--accent);
+  }
+  .sb-limits-banner.warning {
+    background: color-mix(in srgb, #e05252 8%, transparent);
+    border-color: color-mix(in srgb, #e05252 30%, transparent);
+    color: #e05252;
+  }
+  .sb-limits-banner.warning strong {
+    color: #e05252;
+  }
+  .sb-banner-icon {
+    flex-shrink: 0;
+  }
+</style>

@@ -1,0 +1,307 @@
+---
+// Bloque "API Showcase" — terminal pixel + JSON con animación de tipeo
+
+const command = 'curl https://openxixon.es/api/aire?estacion=constitucion -H "X-API-Key: $KEY"';
+
+const endpoints = [
+  '/api/aire',
+  '/api/poblacion',
+  '/api/incidencias',
+  '/api/multas',
+  '/api/inversiones',
+];
+---
+
+<div class="api-showcase">
+  <div class="showcase-eyebrow">
+    <span class="eyebrow-tag mono">API</span>
+    <h2 class="showcase-title">Una API call. Respuesta JSON. Listo.</h2>
+  </div>
+
+  <div class="showcase-grid">
+    <!-- Terminal -->
+    <div class="term-window">
+      <div class="term-header" aria-hidden="true">
+        <span class="term-title mono">terminal</span>
+        <span class="term-dots">
+          <span class="t-dot t-mint"></span>
+          <span class="t-dot t-lavender"></span>
+          <span class="t-dot t-accent"></span>
+        </span>
+      </div>
+      <pre class="term-body"><code><span class="term-prompt">$</span> <span class="term-cmd-target" data-cmd={command}><span class="term-cmd-rendered"></span><span class="term-cursor" aria-hidden="true">_</span></span></code></pre>
+    </div>
+
+    <!-- JSON response -->
+    <div class="term-window json-window">
+      <div class="term-header" aria-hidden="true">
+        <span class="term-title mono">response</span>
+        <span class="term-status mono">200 OK</span>
+      </div>
+      <pre class="term-body json-body" data-reveal="json"><code><span class="j-brace">&#123;</span>
+  <span class="j-key">"estacion"</span><span class="j-punct">:</span> <span class="j-str">"Constitución"</span><span class="j-punct">,</span>
+  <span class="j-key">"fecha"</span><span class="j-punct">:</span> <span class="j-str">"2026-04-26T14:00:00Z"</span><span class="j-punct">,</span>
+  <span class="j-key">"no2"</span><span class="j-punct">:</span> <span class="j-num">23.4</span><span class="j-punct">,</span>
+  <span class="j-key">"pm10"</span><span class="j-punct">:</span> <span class="j-num">18.1</span><span class="j-punct">,</span>
+  <span class="j-key">"ozono"</span><span class="j-punct">:</span> <span class="j-num">67.2</span><span class="j-punct">,</span>
+  <span class="j-key">"calidad"</span><span class="j-punct">:</span> <span class="j-str">"buena"</span>
+<span class="j-brace">&#125;</span></code></pre>
+    </div>
+  </div>
+
+  <div class="endpoint-chips">
+    {endpoints.map(ep => (
+      <span class="ep-chip mono">{ep}</span>
+    ))}
+  </div>
+</div>
+
+<style>
+  .api-showcase { display: flex; flex-direction: column; gap: 2rem; }
+
+  .showcase-eyebrow { text-align: center; }
+  .eyebrow-tag {
+    display: inline-block;
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    color: var(--accent);
+    padding: 0.25rem 0.6rem;
+    border: 1px dashed var(--accent-dim);
+    margin-bottom: 1rem;
+    font-weight: 700;
+  }
+  .showcase-title {
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 300;
+    letter-spacing: -0.025em;
+    color: var(--text);
+  }
+
+  .showcase-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  @media (max-width: 900px) {
+    .showcase-grid { grid-template-columns: 1fr; }
+  }
+
+  .term-window {
+    border: 1px solid var(--border-mid);
+    background: var(--bg);
+    box-shadow: 6px 6px 0 var(--border);
+    overflow: hidden;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .term-header {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.6rem 0.9rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .term-title {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .term-dots, .term-status { margin-left: auto; }
+  .term-status { font-size: 0.65rem; color: var(--mint); letter-spacing: 0.1em; }
+
+  .term-dots { display: inline-flex; gap: 4px; }
+  .t-dot { width: 8px; height: 8px; display: inline-block; }
+  .t-mint { background: var(--mint); }
+  .t-lavender { background: var(--lavender); }
+  .t-accent { background: var(--accent); }
+
+  .term-body {
+    padding: 1.25rem 1.1rem;
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.7;
+    color: var(--text-dim);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .term-prompt { color: var(--accent); margin-right: 0.5rem; }
+  .tk-cmd { color: var(--lavender); }
+  .tk-url { color: var(--accent); }
+  .tk-flag { color: var(--text-muted); }
+  .tk-var { color: var(--mint); }
+  .tk-quote { color: var(--text-muted); }
+  .tk-default { color: var(--text-dim); }
+
+  .term-cursor {
+    display: inline-block;
+    color: var(--mint);
+    margin-left: 1px;
+    animation: blink 0.8s step-end infinite;
+  }
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
+  .json-body { color: var(--text-dim); }
+  .json-body[data-reveal="json"] { opacity: 0; transition: opacity 0.25s ease; }
+  .json-body[data-reveal="shown"] { opacity: 1; }
+
+  .j-brace { color: var(--text); }
+  .j-key { color: var(--lavender); }
+  .j-str { color: var(--mint); }
+  .j-num { color: var(--accent); }
+  .j-punct { color: var(--text-muted); }
+
+  .endpoint-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+  }
+  .ep-chip {
+    font-size: 0.72rem;
+    padding: 0.4rem 0.75rem;
+    border: 1px dashed var(--border-strong);
+    color: var(--text-dim);
+    background: var(--surface);
+    letter-spacing: 0.05em;
+    transition: all 0.15s ease;
+  }
+  .ep-chip:hover {
+    border-style: solid;
+    border-color: var(--accent);
+    color: var(--lavender);
+    background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .term-cursor { animation: none; opacity: 1; }
+    .json-body[data-reveal="json"] { opacity: 1; transition: none; }
+  }
+</style>
+
+<script>
+  type Token = { cls: string; text: string };
+
+  function classify(tok: string): string {
+    if (/^\s+$/.test(tok)) return 'tk-default';
+    if (tok === 'curl') return 'tk-cmd';
+    if (tok.startsWith('-')) return 'tk-flag';
+    if (/^https?:\/\//.test(tok)) return 'tk-url';
+    return 'tk-default';
+  }
+
+  function tokenize(cmd: string): Token[] {
+    const out: Token[] = [];
+    const parts = cmd.split(/(\s+)/);
+    for (const part of parts) {
+      if (part === '') continue;
+      if (part.startsWith('"') && part.endsWith('"') && part.length >= 2) {
+        const inner = part.slice(1, -1);
+        out.push({ cls: 'tk-quote', text: '"' });
+        const subParts = inner.split(/(\$[A-Z_]+)/);
+        for (const sub of subParts) {
+          if (!sub) continue;
+          if (/^\$[A-Z_]+$/.test(sub)) out.push({ cls: 'tk-var', text: sub });
+          else out.push({ cls: 'tk-default', text: sub });
+        }
+        out.push({ cls: 'tk-quote', text: '"' });
+      } else {
+        out.push({ cls: classify(part), text: part });
+      }
+    }
+    return out;
+  }
+
+  function renderUpTo(parent: Element, tokens: Token[], chars: number): void {
+    while (parent.firstChild) parent.removeChild(parent.firstChild);
+    let remaining = chars;
+    for (const tok of tokens) {
+      if (remaining <= 0) break;
+      const slice = tok.text.slice(0, remaining);
+      const span = document.createElement('span');
+      span.className = tok.cls;
+      span.textContent = slice;
+      parent.appendChild(span);
+      remaining -= slice.length;
+    }
+  }
+
+  function initApiShowcase() {
+    const targets = document.querySelectorAll<HTMLElement>('.term-cmd-target');
+    targets.forEach((target) => {
+      if (target.dataset.bound === '1') return;
+      target.dataset.bound = '1';
+
+      const cmd = target.dataset.cmd || '';
+      const rendered = target.querySelector<HTMLElement>('.term-cmd-rendered');
+      if (!rendered) return;
+
+      const tokens = tokenize(cmd);
+      const totalChars = tokens.reduce((sum, t) => sum + t.text.length, 0);
+      const showcase = target.closest('.api-showcase');
+      const jsonBody = showcase?.querySelector<HTMLElement>('.json-body');
+
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      const reveal = () => {
+        if (reduced) {
+          renderUpTo(rendered, tokens, totalChars);
+          if (jsonBody) jsonBody.dataset.reveal = 'shown';
+          return;
+        }
+        let i = 0;
+        const duration = 700;
+        const interval = Math.max(8, Math.floor(duration / Math.max(1, totalChars)));
+        const tick = () => {
+          i++;
+          renderUpTo(rendered, tokens, i);
+          if (i < totalChars) {
+            setTimeout(tick, interval);
+          } else {
+            setTimeout(() => {
+              if (jsonBody) jsonBody.dataset.reveal = 'shown';
+            }, 220);
+          }
+        };
+        tick();
+      };
+
+      if (!showcase || typeof IntersectionObserver === 'undefined') {
+        reveal();
+        return;
+      }
+      let revealed = false;
+      const safeReveal = () => {
+        if (revealed) return;
+        revealed = true;
+        reveal();
+      };
+      const obs = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              safeReveal();
+              obs.disconnect();
+            }
+          });
+        },
+        { threshold: 0.1 }
+      );
+      obs.observe(showcase);
+      // Fallback: si por cualquier razón el IO no dispara en 1.5s, revelar igual.
+      setTimeout(safeReveal, 1500);
+    });
+  }
+
+  document.addEventListener('astro:page-load', initApiShowcase);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApiShowcase);
+  } else {
+    initApiShowcase();
+  }
+</script>

@@ -1,0 +1,16 @@
+---
+import { createSupabaseClient } from '../../lib/supabase'
+
+const supabase = createSupabaseClient(Astro.cookies, Astro.request)
+const code = Astro.url.searchParams.get('code')
+const access_token = Astro.url.searchParams.get('access_token')
+const refresh_token = Astro.url.searchParams.get('refresh_token')
+
+if (code) {
+  await supabase.auth.exchangeCodeForSession(code)
+} else if (access_token && refresh_token) {
+  await supabase.auth.setSession({ access_token, refresh_token })
+}
+
+return Astro.redirect('/app/dashboard')
+---

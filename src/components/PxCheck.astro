@@ -1,0 +1,27 @@
+---
+interface Props {
+  class?: string;
+  size?: number;
+}
+const { class: className, size = 16 } = Astro.props;
+---
+<svg 
+  class:list={["px-check", className]} 
+  width={size} 
+  height={size} 
+  viewBox="0 0 24 24" 
+  fill="none" 
+  stroke="currentColor" 
+  stroke-width="3" 
+  stroke-linecap="square" 
+  stroke-linejoin="miter"
+>
+  <path d="M20 6L9 17L4 12" />
+</svg>
+
+<style>
+  .px-check {
+    display: inline-block;
+    flex-shrink: 0;
+  }
+</style>

@@ -1,0 +1,286 @@
+---
+import Layout from '../../layouts/Layout.astro'
+
+const lastUpdate = new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })
+---
+
+<Layout title="Política de Cookies">
+<div class="container">
+
+  <header class="page-header">
+    <div class="breadcrumb">
+      <a href="/">Inicio</a>
+      <span class="sep">/</span>
+      <span>Cookies</span>
+    </div>
+    <h1 class="page-title">Política de Cookies</h1>
+    <p class="page-subtitle">Última actualización: {lastUpdate}</p>
+  </header>
+
+  <section class="section" id="cookies">
+    <div class="section-row">
+      <h2 class="section-title">Política de Cookies</h2>
+      <span class="label">6 secciones</span>
+    </div>
+
+    <div class="bento-grid">
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>1. Qué son las Cookies</h2>
+        <p>Pequeños archivos de texto almacenados en tu dispositivo al visitar un sitio web. Permiten recordar preferencias y mejorar la experiencia de navegación.</p>
+      </div>
+
+      <div class="bento-item bento-item--col2 group">
+        <div class="bento-glow"></div>
+        <h2>2. Cookies que Utilizamos</h2>
+        <div class="cookie-table">
+          <div class="ct-header">
+            <span>Nombre</span>
+            <span>Propósito</span>
+            <span>Duración</span>
+          </div>
+          <div class="ct-row">
+            <span>ox_session</span>
+            <span>Mantener sesión iniciada</span>
+            <span>Sesión</span>
+          </div>
+          <div class="ct-row">
+            <span>ox_csrf</span>
+            <span>Protección CSRF</span>
+            <span>Sesión</span>
+          </div>
+          <div class="ct-row">
+            <span>ox_theme</span>
+            <span>Preferencia de tema visual</span>
+            <span>1 año</span>
+          </div>
+          <div class="ct-row">
+            <span>ox_analytics</span>
+            <span>Estadísticas anonimizadas</span>
+            <span>1 año</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>3. Cookies de Terceros</h2>
+        <ul>
+          <li><strong>Supabase:</strong> DB y auth</li>
+          <li><strong>Cloudflare:</strong> CDN y seguridad</li>
+          <li><strong>Stripe:</strong> Pagos</li>
+        </ul>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>4. Gestionar Cookies</h2>
+        <p>Desde las opciones de tu navegador:</p>
+        <ul>
+          <li><strong>Chrome:</strong> Configuración → Privacidad</li>
+          <li><strong>Firefox:</strong> Preferencias → Privacidad</li>
+          <li><strong>Safari:</strong> Preferencias → Privacidad</li>
+        </ul>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>5. Actualizaciones</h2>
+        <p>Podemos actualizar esta política ocasionalmente. Los cambios entrarán en vigor al publicarse.</p>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>6. Contacto</h2>
+        <p><a href="mailto:danielfonov71@vodtinker.dev">danielfonov71@vodtinker.dev</a></p>
+      </div>
+    </div>
+  </section>
+
+</div>
+</Layout>
+
+<style>
+  .page-header {
+    padding: 4rem 0 3rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 3rem;
+  }
+
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+
+  .breadcrumb a {
+    color: var(--text-dim);
+    transition: color 0.15s;
+  }
+
+  .breadcrumb a:hover {
+    color: var(--text);
+  }
+
+  .breadcrumb .sep {
+    opacity: 0.5;
+  }
+
+  .page-title {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.5rem;
+  }
+
+  .page-subtitle {
+    font-size: 0.9375rem;
+    color: var(--text-dim);
+  }
+
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .bento-item {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    overflow: hidden;
+  }
+
+  .bento-item:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-strong);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  }
+
+  .bento-glow {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(0,0,0,0.03), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+
+  .bento-item:hover .bento-glow {
+    opacity: 1;
+  }
+
+  .bento-item h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+  }
+
+  .bento-item p {
+    font-size: 0.875rem;
+    line-height: 1.7;
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  .bento-item ul {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0 0;
+  }
+
+  .bento-item li {
+    position: relative;
+    padding-left: 1.25rem;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--text-dim);
+    margin-bottom: 0.35rem;
+  }
+
+  .bento-item li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-size: 0.75rem;
+  }
+
+  .bento-item a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .bento-item a:hover {
+    opacity: 0.8;
+  }
+
+  .bento-item strong {
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .bento-item--col2 {
+    grid-column: span 2;
+  }
+
+  .cookie-table {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-top: 0.5rem;
+  }
+
+  .ct-header {
+    display: grid;
+    grid-template-columns: 1.5fr 2fr 1fr;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+  }
+
+  .ct-row {
+    display: grid;
+    grid-template-columns: 1.5fr 2fr 1fr;
+    gap: 1rem;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.8125rem;
+    color: var(--text-dim);
+  }
+
+  .ct-row:last-child {
+    border-bottom: none;
+  }
+
+  .ct-row span:first-child {
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--text);
+  }
+
+  @media (max-width: 768px) {
+    .bento-grid {
+      grid-template-columns: 1fr;
+    }
+    .bento-item--col2 {
+      grid-column: span 1;
+    }
+  }
+</style>

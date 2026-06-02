@@ -1,0 +1,279 @@
+---
+import Layout from '../../layouts/Layout.astro'
+
+const lastUpdate = new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })
+---
+
+<Layout title="Términos de Uso">
+<div class="container">
+
+  <header class="page-header">
+    <div class="breadcrumb">
+      <a href="/">Inicio</a>
+      <span class="sep">/</span>
+      <span>Términos de Uso</span>
+    </div>
+    <h1 class="page-title">Términos de Uso</h1>
+    <p class="page-subtitle">Última actualización: {lastUpdate}</p>
+  </header>
+
+  <section class="section" id="terminos">
+    <div class="section-row">
+      <h2 class="section-title">Términos y Condiciones de Uso y Contratación</h2>
+      <span class="label">SaaS Contractual</span>
+    </div>
+
+    <div class="bento-grid">
+      <div class="bento-item bento-item--col2 group">
+        <div class="bento-glow"></div>
+        <h2>1. Ámbito Contractual</h2>
+        <p>Los presentes Términos y Condiciones regulan el acceso, uso y contratación de los servicios de suscripción de la API de <strong>OpenXixón</strong> (gestionada por VodTinker, en adelante "el Prestador").</p>
+        <p>Al registrarte en el portal, generar una API Key o contratar cualquiera de los planes de pago (Pro o Premium), aceptas plenamente quedar vinculado por este contrato de servicios digitales.</p>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>2. Descripción del Servicio</h2>
+        <p>OpenXixón es una plataforma freemium que recopila, limpia, procesa y sirve en tiempo real mediante API estructurada (JSON) datos de carácter público pertenecientes al Ayuntamiento de Gijón:</p>
+        <ul>
+          <li>Lecturas de la calidad del aire y contaminación.</li>
+          <li>Demografía y padrón municipal.</li>
+          <li>Contratos, inversiones y licitaciones públicas.</li>
+          <li>Datos históricos agregados.</li>
+        </ul>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>3. Modalidades y Precios</h2>
+        <p>El acceso al servicio está condicionado al plan seleccionado:</p>
+        <ul>
+          <li><strong>Plan Free:</strong> Límite de peticiones gratuito para pruebas y desarrollo.</li>
+          <li><strong>Planes de Pago (Pro/Premium):</strong> Ampliación de límites de cuota diaria y acceso a histórico de datos.</li>
+          <li><strong>Precios:</strong> Mostrados en Euros (€). Salvo indicación expresa, el IVA aplicable (21% en España) se desglosará y añadirá en el momento del pago mediante Stripe.</li>
+        </ul>
+      </div>
+
+      <div class="bento-item bento-item--col2 group">
+        <div class="bento-glow"></div>
+        <h2>4. Exclusión del Derecho de Desistimiento (¡Importante!)</h2>
+        <p>De acuerdo con el <strong>artículo 103, letra m) de la Ley General para la Defensa de los Consumidores y Usuarios (LGDCU)</strong>, el derecho de desistimiento de 14 días <strong>no será aplicable</strong> al suministro de contenido digital que no se preste en un soporte material, cuando la ejecución haya comenzado.</p>
+        <p>El usuario acepta y consiente expresamente que, al tratarse de un servicio de acceso inmediato (generación instantánea de credenciales API y consumo de datos), <strong>pierde su derecho de desistimiento una vez que realice la primera consulta con su API Key</strong> o acceda al Dashboard de usuario de pago.</p>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>5. Normas de Uso Aceptable (Abuso)</h2>
+        <p>El usuario se compromete a realizar un uso lícito de la API. Queda estrictamente prohibido:</p>
+        <ul>
+          <li>Bypassear los límites de cuota (rate limit) de forma intencionada.</li>
+          <li>Realizar ataques de denegación de servicio (DoS/DDoS) o inyección de código.</li>
+          <li>Revender el acceso directo a la API a terceros sin autorización previa por escrito.</li>
+          <li>Utilizar bots o scrapers agresivos fuera de las rutas autorizadas del Sandbox.</li>
+        </ul>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>6. Facturación y Cancelación</h2>
+        <p>Para los planes Pro/Premium de suscripción periódica:</p>
+        <ul>
+          <li><strong>Cobro recurrente:</strong> Se factura por adelantado (mensual o anualmente) a través de la pasarela Stripe.</li>
+          <li><strong>Cancelación:</strong> El usuario puede cancelar su suscripción en cualquier momento desde su panel de control. El acceso Pro se mantendrá activo hasta finalizar el período ya pagado.</li>
+          <li><strong>Impago:</strong> El impago de una cuota provocará la suspensión automática de las API Keys del plan Pro.</li>
+        </ul>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>7. Propiedad Intelectual y Datos Públicos</h2>
+        <ul>
+          <li>El código de OpenXixón y el diseño del portal son propiedad del Prestador y están protegidos por derechos de autor.</li>
+          <li>Los datos originales consumidos provienen del Portal de Datos Abiertos del Ayuntamiento de Gijón y se rigen por su respectiva licencia de reutilización pública (dominio público / datos abiertos).</li>
+        </ul>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>8. Límite de Responsabilidad</h2>
+        <p>El Prestador procesa y limpia los datos públicos de buena fe, pero **no ofrece garantías de veracidad, precisión o disponibilidad absoluta** de los datos gubernamentales originales en origen. El Prestador no responderá en ningún caso por interrupciones de negocio, pérdida de beneficios o daños indirectos derivados del uso de la API.</p>
+      </div>
+
+      <div class="bento-item bento-item--col2 group">
+        <div class="bento-glow"></div>
+        <h2>9. Resolución de Conflictos (Plataforma ODR Obligatoria)</h2>
+        <p>De conformidad con el <strong>Reglamento (UE) nº 524/2013</strong>, informamos a los usuarios que la Comisión Europea dispone de una plataforma gratuita de resolución de litigios en línea para contratos celebrados por internet.</p>
+        <p>Puedes acceder a dicha plataforma oficial a través del siguiente enlace obligatorio: <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer">https://ec.europa.eu/consumers/odr</a>.</p>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>10. Ley Aplicable y Jurisdicción</h2>
+        <p>Estos Términos de Uso se rigen por la legislación española. En caso de disputas con usuarios comerciales o profesionales, ambas partes se someten a la jurisdicción exclusiva de los Juzgados y Tribunales de Gijón (Asturias, España), renunciando a cualquier otro fuero.</p>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>11. Contacto Soporte</h2>
+        <p>Para resolver cualquier consulta contractual o técnica relacionada con los Términos de Uso, por favor ponte en contacto en la dirección de correo: <a href="mailto:danielfonov71@vodtinker.dev">danielfonov71@vodtinker.dev</a>.</p>
+      </div>
+    </div>
+  </section>
+
+</div>
+</Layout>
+
+<style>
+  .page-header {
+    padding: 4rem 0 3rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 3rem;
+  }
+
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+
+  .breadcrumb a {
+    color: var(--text-dim);
+    transition: color 0.15s;
+  }
+
+  .breadcrumb a:hover {
+    color: var(--text);
+  }
+
+  .breadcrumb .sep {
+    opacity: 0.5;
+  }
+
+  .page-title {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.5rem;
+  }
+
+  .page-subtitle {
+    font-size: 0.9375rem;
+    color: var(--text-dim);
+  }
+
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .bento-item {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    overflow: hidden;
+  }
+
+  .bento-item:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-strong);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  }
+
+  .bento-glow {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(0,0,0,0.03), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+
+  .bento-item:hover .bento-glow {
+    opacity: 1;
+  }
+
+  .bento-item h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+  }
+
+  .bento-item p {
+    font-size: 0.875rem;
+    line-height: 1.7;
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  .bento-item ul {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0 0;
+  }
+
+  .bento-item li {
+    position: relative;
+    padding-left: 1.25rem;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--text-dim);
+    margin-bottom: 0.35rem;
+  }
+
+  .bento-item li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-size: 0.75rem;
+  }
+
+  .bento-item ul.\u6禁止 li::before {
+    content: '×';
+    color: var(--red);
+  }
+
+  .bento-item a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .bento-item a:hover {
+    opacity: 0.8;
+  }
+
+  .bento-item strong {
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .bento-item--col2 {
+    grid-column: span 2;
+  }
+
+  .bento-item ul.\u6prohibido li::before {
+    content: '×';
+    color: var(--red);
+  }
+
+  @media (max-width: 768px) {
+    .bento-grid {
+      grid-template-columns: 1fr;
+    }
+    .bento-item--col2 {
+      grid-column: span 1;
+    }
+  }
+</style>

@@ -1,0 +1,522 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro'
+import { db, getSession } from '../../lib/supabase'
+
+const { user } = await getSession(Astro.cookies, Astro.request)
+const { data: profile } = await db.from('profiles').select('api_key, plan, requests_today, created_at').eq('user_id', user!.id).single()
+
+if (Astro.request.method === 'POST') {
+  const newKey = crypto.randomUUID().replace(/-/g, '')
+  await db.from('profiles').update({ api_key: newKey }).eq('user_id', user!.id)
+  return Astro.redirect('/app/api-keys')
+}
+
+const apiKey = profile?.api_key
+const plan = profile?.plan ?? 'free'
+const reqToday = profile?.requests_today ?? 0
+const created = profile?.created_at ? new Date(profile.created_at) : null
+const maskedKey = apiKey
+  ? `${apiKey.slice(0, 8)}${'•'.repeat(Math.max(0, apiKey.length - 12))}${apiKey.slice(-4)}`
+  : null
+---
+
+<AppLayout title="API Keys">
+  <div class="ak-accent-line" aria-hidden="true"></div>
+
+  <header class="ak-top">
+    <div>
+      <span class="label">API · Credenciales</span>
+      <h1>API Keys</h1>
+      <p class="ak-sub">Usa tu token Bearer para autenticar llamadas a la API REST.</p>
+    </div>
+    <span class:list={['plan-pill', plan === 'pro' ? 'plan-pill--pro' : 'plan-pill--free']}>
+      {plan.toUpperCase()}
+    </span>
+  </header>
+
+  <!-- ─── API Key principal ─── -->
+  <section class="panel">
+    <div class="panel-head">
+      <span class="label">Token Bearer</span>
+      {apiKey && (
+        <span class="ak-status">
+          <span class="ak-status-dot"></span>
+          <span class="mono">activa</span>
+        </span>
+      )}
+    </div>
+
+    {apiKey ? (
+      <div class="key-card">
+        <div class="key-card-head">
+          <span class="key-card-label mono">sk_live</span>
+          <button type="button" class="key-reveal-btn mono" id="toggle-reveal">Mostrar</button>
+        </div>
+        <div class="key-value-row">
+          <code class="key-value mono" id="api-key-masked">{maskedKey}</code>
+          <code class="key-value key-value-full mono" id="api-key-full" hidden>{apiKey}</code>
+          <button type="button" class="btn-copy" id="copy-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            <span id="copy-label">Copiar</span>
+          </button>
+        </div>
+
+        <div class="key-meta-grid">
+          <div class="key-meta">
+            <span class="km-label mono">PETICIONES HOY</span>
+            <span class="km-value mono">{reqToday.toLocaleString('es-ES')}</span>
+          </div>
+          <div class="key-meta">
+            <span class="km-label mono">CREADA</span>
+            <span class="km-value mono">{created ? created.toLocaleDateString('es-ES') : '—'}</span>
+          </div>
+          <div class="key-meta">
+            <span class="km-label mono">PLAN</span>
+            <span class="km-value mono">{plan.toUpperCase()}</span>
+          </div>
+        </div>
+      </div>
+    ) : (
+      <div class="no-key-card">
+        <p>No tienes una API key generada aún.</p>
+      </div>
+    )}
+
+    <div class="regen-row">
+      <form method="POST">
+        <button type="submit" class="btn btn-secondary btn-sm">
+          {apiKey ? 'Regenerar key' : 'Generar API key'}
+        </button>
+      </form>
+      {apiKey && (
+        <p class="key-warning mono">
+          <span class="kw-dot"></span>
+          Regenerar invalida la key anterior inmediatamente.
+        </p>
+      )}
+    </div>
+  </section>
+
+  <!-- ─── Ejemplos de uso con tabs ─── -->
+  <section class="panel">
+    <div class="panel-head">
+      <span class="label">Ejemplos de uso</span>
+      <a href="/docs" class="panel-cta">Ver docs completos →</a>
+    </div>
+
+    <div class="tabs-container">
+      <div class="tabs-head" role="tablist">
+        <button class="tab-btn active" data-tab="curl" role="tab">curl</button>
+        <button class="tab-btn" data-tab="js" role="tab">JavaScript</button>
+        <button class="tab-btn" data-tab="py" role="tab">Python</button>
+      </div>
+
+      <pre class="code-block mono tab-panel active" data-panel="curl"><code>{`curl https://openxixon.vodtinker.dev/api/aire \\
+  -H "Authorization: Bearer ${apiKey ?? 'TU_API_KEY'}"`}</code></pre>
+
+      <pre class="code-block mono tab-panel" data-panel="js" hidden><code>{`const res = await fetch('https://openxixon.vodtinker.dev/api/aire', {
+  headers: { 'Authorization': 'Bearer ${apiKey ?? 'TU_API_KEY'}' }
+})
+const data = await res.json()`}</code></pre>
+
+      <pre class="code-block mono tab-panel" data-panel="py" hidden><code>{`import requests
+res = requests.get(
+  'https://openxixon.vodtinker.dev/api/aire',
+  headers={'Authorization': 'Bearer ${apiKey ?? 'TU_API_KEY'}'}
+)
+print(res.json())`}</code></pre>
+    </div>
+  </section>
+
+  <!-- ─── Seguridad ─── -->
+  <section class="panel">
+    <div class="panel-head">
+      <span class="label">Seguridad</span>
+    </div>
+    <div class="security-grid">
+      <div class="sec-item">
+        <span class="sec-icon">◇</span>
+        <div>
+          <span class="sec-title">Nunca expongas tu key en cliente</span>
+          <span class="sec-desc">Úsala solo en backend, variables de entorno o secret stores.</span>
+        </div>
+      </div>
+      <div class="sec-item">
+        <span class="sec-icon">◇</span>
+        <div>
+          <span class="sec-title">Regenera si sospechas filtración</span>
+          <span class="sec-desc">La anterior queda invalidada en el instante.</span>
+        </div>
+      </div>
+      <div class="sec-item">
+        <span class="sec-icon">◇</span>
+        <div>
+          <span class="sec-title">Rate limit 100/día en Free</span>
+          <span class="sec-desc">Pasa a Pro para 10.000 req/día o activa pay-as-you-go.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</AppLayout>
+
+<script>
+  // Copiar al portapapeles con feedback
+  const copyBtn = document.getElementById('copy-btn')
+  const copyLabel = document.getElementById('copy-label')
+  const fullEl = document.getElementById('api-key-full') as HTMLElement | null
+
+  copyBtn?.addEventListener('click', async () => {
+    const key = fullEl?.textContent ?? ''
+    if (!key) return
+    try {
+      await navigator.clipboard.writeText(key)
+      if (copyLabel) {
+        copyLabel.textContent = '✓ Copiado'
+        setTimeout(() => { copyLabel.textContent = 'Copiar' }, 1800)
+      }
+    } catch {
+      /* ignore */
+    }
+  })
+
+  // Mostrar/ocultar key
+  const toggleBtn = document.getElementById('toggle-reveal')
+  const masked = document.getElementById('api-key-masked')
+  toggleBtn?.addEventListener('click', () => {
+    if (!fullEl || !masked) return
+    const revealed = !fullEl.hasAttribute('hidden')
+    if (revealed) {
+      fullEl.setAttribute('hidden', '')
+      masked.removeAttribute('hidden')
+      toggleBtn.textContent = 'Mostrar'
+    } else {
+      fullEl.removeAttribute('hidden')
+      masked.setAttribute('hidden', '')
+      toggleBtn.textContent = 'Ocultar'
+    }
+  })
+
+  // Tabs
+  document.querySelectorAll<HTMLButtonElement>('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.tab
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      document.querySelectorAll<HTMLElement>('.tab-panel').forEach(p => {
+        if (p.dataset.panel === key) {
+          p.classList.add('active')
+          p.removeAttribute('hidden')
+        } else {
+          p.classList.remove('active')
+          p.setAttribute('hidden', '')
+        }
+      })
+    })
+  })
+</script>
+
+<style>
+  .ak-accent-line {
+    height: 2px;
+    width: calc(100% + 4rem);
+    background: var(--accent-gradient);
+    opacity: 0.9;
+    margin: -2rem -2rem 2rem;
+  }
+
+  .ak-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .ak-top h1 {
+    font-size: 1.75rem;
+    font-weight: 400;
+    margin: 0.5rem 0 0.2rem;
+    letter-spacing: -0.02em;
+  }
+  .ak-sub {
+    font-size: 0.8125rem;
+    color: var(--text-dim);
+  }
+
+  .plan-pill {
+    display: inline-flex;
+    padding: 0.35rem 0.7rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    flex-shrink: 0;
+  }
+  .plan-pill--pro { background: var(--accent-soft); border-color: var(--accent); color: var(--lavender); }
+
+  .panel { margin-bottom: 2.25rem; }
+  .panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.85rem;
+    gap: 1rem;
+  }
+  .panel-cta {
+    font-size: 0.75rem;
+    color: var(--accent);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .panel-cta:hover { color: var(--lavender); }
+
+  /* ── Status dot ── */
+  .ak-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.6875rem;
+    color: var(--mint);
+    letter-spacing: 0.04em;
+  }
+  .ak-status-dot {
+    width: 6px; height: 6px;
+    background: var(--mint);
+    border-radius: 50%;
+    animation: akPulse 1.8s ease-in-out infinite;
+  }
+  @keyframes akPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.4); opacity: 0.55; }
+  }
+
+  /* ── Key card ── */
+  .key-card {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+  }
+  .key-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0;
+    width: 2px; height: 100%;
+    background: var(--accent-gradient);
+  }
+  .key-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-1);
+  }
+  .key-card-label {
+    font-size: 0.625rem;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+  }
+  .key-reveal-btn {
+    background: transparent;
+    border: 1px solid var(--border-mid);
+    color: var(--text-dim);
+    font-size: 0.6875rem;
+    padding: 0.25rem 0.55rem;
+    letter-spacing: 0.04em;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .key-reveal-btn:hover { color: var(--text); border-color: var(--border-strong); }
+
+  .key-value-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+  .key-value {
+    flex: 1;
+    font-size: 0.9375rem;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+  }
+
+  .btn-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.75rem;
+    background: transparent;
+    border: 1px solid var(--border-mid);
+    color: var(--text-dim);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    flex-shrink: 0;
+  }
+  .btn-copy:hover {
+    color: var(--text);
+    border-color: var(--text);
+    background: var(--surface-2);
+  }
+
+  .key-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-top: 1px solid var(--border);
+  }
+  .key-meta {
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    border-right: 1px solid var(--border);
+  }
+  .key-meta:last-child { border-right: none; }
+  .km-label {
+    font-size: 0.5625rem;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+  }
+  .km-value {
+    font-size: 0.9375rem;
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .no-key-card {
+    padding: 2rem;
+    border: 1px dashed var(--border-mid);
+    background: var(--surface);
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+  }
+
+  .regen-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  .key-warning {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.6875rem;
+    color: var(--peach);
+    letter-spacing: 0.02em;
+    margin: 0;
+  }
+  .kw-dot {
+    display: block;
+    width: 5px; height: 5px;
+    background: var(--peach);
+    border-radius: 50%;
+  }
+
+  /* ── Tabs ── */
+  .tabs-container {
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .tabs-head {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-1);
+  }
+  .tab-btn {
+    padding: 0.7rem 1rem;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.15s;
+  }
+  .tab-btn:hover { color: var(--text-dim); }
+  .tab-btn.active { color: var(--text); }
+  .tab-btn.active::after {
+    content: '';
+    position: absolute;
+    left: 1rem; right: 1rem;
+    bottom: -1px;
+    height: 2px;
+    background: var(--accent);
+  }
+
+  .tabs-container .code-block {
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    background: #0A0A0A;
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  :root[data-theme="light"] .tabs-container .code-block {
+    background: #F7F7F8;
+    color: #111827;
+  }
+
+  /* ── Seguridad ── */
+  .security-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .sec-item {
+    padding: 1.1rem 1.15rem;
+    border-right: 1px solid var(--border);
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+  .sec-item:last-child { border-right: none; }
+  .sec-icon {
+    color: var(--accent);
+    font-size: 1.1rem;
+    line-height: 1;
+    margin-top: 0.1rem;
+  }
+  .sec-title {
+    display: block;
+    font-size: 0.8125rem;
+    color: var(--text);
+    font-weight: 500;
+    margin-bottom: 0.2rem;
+  }
+  .sec-desc {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  @media (max-width: 900px) {
+    .security-grid { grid-template-columns: 1fr; }
+    .sec-item      { border-right: none; border-bottom: 1px solid var(--border); }
+    .sec-item:last-child { border-bottom: none; }
+
+    .key-meta-grid { grid-template-columns: 1fr; }
+    .key-meta      { border-right: none; border-bottom: 1px solid var(--border); }
+    .key-meta:last-child { border-bottom: none; }
+  }
+
+  @media (max-width: 600px) {
+    .ak-top { flex-direction: column; align-items: flex-start; }
+    .key-value-row { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+  }
+</style>

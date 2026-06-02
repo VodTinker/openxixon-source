@@ -1,0 +1,142 @@
+---
+// Toggle Mensual / Anual. Estado expuesto por window event "price:cycle".
+// El precio Pro se actualiza desde precios.astro escuchando el evento.
+---
+
+<div class="price-toggle" data-cycle="monthly">
+  <div class="toggle-bg" aria-hidden="true">
+    <span class="toggle-slider"></span>
+  </div>
+  <button
+    type="button"
+    class="toggle-opt is-active"
+    data-cycle="monthly"
+    role="switch"
+    aria-checked="true"
+  >
+    MENSUAL
+  </button>
+  <button
+    type="button"
+    class="toggle-opt"
+    data-cycle="annual"
+    role="switch"
+    aria-checked="false"
+  >
+    ANUAL
+    <span class="toggle-discount mono">-17%</span>
+  </button>
+</div>
+
+<style>
+  .price-toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: stretch;
+    gap: 0;
+    margin: 0 auto 3rem;
+    border: 1px dashed var(--border-strong);
+    background: var(--surface);
+    padding: 4px;
+    box-shadow: 4px 4px 0 var(--border);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .toggle-bg {
+    position: absolute;
+    inset: 4px;
+    pointer-events: none;
+  }
+  .toggle-slider {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 100%;
+    background: var(--accent);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: inset 0 0 0 1px var(--accent-strong);
+  }
+  .price-toggle[data-cycle="annual"] .toggle-slider {
+    transform: translateX(100%);
+  }
+
+  .toggle-opt {
+    position: relative;
+    z-index: 1;
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--text-muted);
+    padding: 0.85rem 1.6rem;
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    transition: color 0.2s ease;
+  }
+  .toggle-opt.is-active {
+    color: #fff;
+  }
+  .toggle-opt:hover:not(.is-active) {
+    color: var(--text-dim);
+  }
+  .toggle-discount {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+    background: var(--mint);
+    color: #002D17;
+    letter-spacing: 0.05em;
+    font-weight: 800;
+    transition: background 0.2s, color 0.2s;
+  }
+  .toggle-opt.is-active .toggle-discount {
+    background: rgba(255,255,255,0.95);
+    color: var(--accent-strong);
+  }
+
+  @media (max-width: 480px) {
+    .toggle-opt { padding: 0.7rem 1rem; font-size: 0.7rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .toggle-slider { transition: none; }
+  }
+</style>
+
+<script>
+  function initPriceToggle() {
+    const toggles = document.querySelectorAll<HTMLElement>('.price-toggle');
+    toggles.forEach((toggle) => {
+      if (toggle.dataset.bound === '1') return;
+      toggle.dataset.bound = '1';
+
+      const opts = toggle.querySelectorAll<HTMLButtonElement>('.toggle-opt');
+      opts.forEach((opt) => {
+        opt.addEventListener('click', () => {
+          const cycle = opt.dataset.cycle as 'monthly' | 'annual';
+          if (toggle.dataset.cycle === cycle) return;
+          toggle.dataset.cycle = cycle;
+          opts.forEach((o) => {
+            const active = o.dataset.cycle === cycle;
+            o.classList.toggle('is-active', active);
+            o.setAttribute('aria-checked', active ? 'true' : 'false');
+          });
+          window.dispatchEvent(
+            new CustomEvent('price:cycle', { detail: { cycle } })
+          );
+        });
+      });
+    });
+  }
+
+  document.addEventListener('astro:page-load', initPriceToggle);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPriceToggle);
+  } else {
+    initPriceToggle();
+  }
+</script>

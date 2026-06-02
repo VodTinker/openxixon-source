@@ -1,0 +1,378 @@
+---
+import ThemeToggle from './ThemeToggle.astro'
+
+const navLinks = [
+  {
+    href: '/datos', label: 'Datos', reload: false,
+    // bar chart: 3 ascending columns
+    icon: 'M0 9h3v5H0zm4-4h3v9H4zm5-5h3v14H9zM0 13h12v1H0z',
+  },
+  {
+    href: '/sandbox', label: 'Sandbox', reload: false,
+    // console prompt: > _
+    icon: 'M1 2l4 3-4 3v-1l3-2-3-2v-1zm5 5h4v1H6z',
+  },
+  {
+    href: '/docs', label: 'Docs', reload: false,
+    // document with text lines
+    icon: 'M2 0h8v2H2zM0 2h2v12H0zm10 0h2v12h-2zM2 12h8v2H2zM4 4h5v1H4zM4 6h5v1H4zM4 8h3v1H4z',
+  },
+  {
+    href: '/precios', label: 'Precios', reload: false,
+    // credit card / tag
+    icon: 'M0 2h14v3H0zM0 7h14v1H0zM0 10h14v4H0zM2 4h3v1H2z',
+  },
+  {
+    href: '/faq', label: 'FAQ', reload: false,
+    // speech bubble with dot
+    icon: 'M1 0h12v2H1zM0 2h1v7H0zm13 0h1v7h-1zM1 9h7v2H1zM1 11h2v2H1zM6 3h2v3H6zM6 7h2v1H6z',
+  },
+]
+
+const path = Astro.url.pathname
+---
+
+<header class="nav" id="site-nav">
+  <div class="nav-inner">
+
+    <!-- Logo — anclado a la izquierda -->
+    <a href="/" class="nav-logo" aria-label="OpenXixón — inicio">
+      <svg class="nav-mark" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <rect x="0"  y="10" width="4" height="10" fill="currentColor"/>
+        <rect x="6"  y="4"  width="4" height="16" fill="currentColor"/>
+        <rect x="12" y="0"  width="4" height="20" fill="currentColor"/>
+        <rect x="16" y="6"  width="4" height="8"  fill="var(--accent)"/>
+      </svg>
+      <span class="nav-brand">OpenXixón</span>
+      <span class="nav-beta mono">BETA</span>
+    </a>
+
+    <!-- Links centrados (position:absolute en desktop) -->
+    <nav class="nav-links" aria-label="Navegación principal">
+      {navLinks.map(l => (
+        <a
+          href={l.href}
+          data-astro-reload={l.reload ? '' : undefined}
+          class:list={['nav-link', { active: path === l.href || path.startsWith(l.href + '/') }]}
+        >
+          <svg class="nav-link-icon" width="13" height="13" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
+            <path d={l.icon}/>
+          </svg>
+          {l.label}
+        </a>
+      ))}
+    </nav>
+
+    <!-- CTAs — anclados a la derecha -->
+    <div class="nav-end">
+      <div class="nav-actions-wrap">
+        <ThemeToggle />
+        <div class="nav-divider"></div>
+        <a href="/app/dashboard" class="btn btn-primary btn-sm" data-auth="user">Dashboard</a>
+        <a href="/login"    class="btn btn-ghost   btn-sm" data-auth="guest">Entrar</a>
+        <a href="/registro" class="btn btn-primary btn-sm" data-auth="guest">Empezar →</a>
+      </div>
+    </div>
+
+    <!-- Hamburger mobile -->
+    <button id="nav-toggle" class="nav-toggle" aria-label="Menú" aria-expanded="false" type="button">
+      <div class="hamburger-inner">
+        <span class="h-line top"></span>
+        <span class="h-line mid"></span>
+        <span class="h-line bot"></span>
+      </div>
+    </button>
+
+  </div>
+
+  <!-- Panel mobile -->
+  <div id="nav-mobile" class="nav-mobile" aria-hidden="true">
+    <div class="nm-inner">
+      {navLinks.map(l => (
+        <a
+          href={l.href}
+          data-astro-reload={l.reload ? '' : undefined}
+          class:list={['nm-link', { active: path === l.href || path.startsWith(l.href + '/') }]}
+        >
+          <svg class="nm-link-icon" width="15" height="15" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
+            <path d={l.icon}/>
+          </svg>
+          {l.label}
+        </a>
+      ))}
+
+      <div class="nm-actions">
+        <div class="nm-actions-top">
+          <ThemeToggle />
+          <span class="label">Ajustes</span>
+        </div>
+        <div class="nm-btns">
+          <a href="/app/dashboard" class="btn btn-primary nm-btn" data-auth="user">Dashboard</a>
+          <a href="/login"    class="btn btn-ghost   nm-btn" data-auth="guest">Entrar</a>
+          <a href="/registro" class="btn btn-primary nm-btn" data-auth="guest">Empezar →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<script>
+  function initNav() {
+    // ── Scroll: clase "scrolled" para el efecto floating ────────────────────
+    const nav = document.getElementById('site-nav')
+    if (nav) {
+      const onScroll = () => {
+        const isScrolled = window.scrollY > 20
+        nav.classList.toggle('scrolled', isScrolled)
+      }
+      window.addEventListener('scroll', onScroll, { passive: true })
+      onScroll()
+    }
+
+    // ── Mobile menu ──────────────────────────────────────────────────────────
+    const toggle = document.getElementById('nav-toggle') as HTMLButtonElement | null
+    const mobile = document.getElementById('nav-mobile')
+    const body = document.body
+
+    function closeMobile() {
+      mobile?.classList.remove('open')
+      toggle?.setAttribute('aria-expanded', 'false')
+      mobile?.setAttribute('aria-hidden', 'true')
+      body.style.overflow = ''
+    }
+
+    if (toggle && mobile) {
+      toggle.addEventListener('click', () => {
+        const open = mobile.classList.toggle('open')
+        toggle.setAttribute('aria-expanded', String(open))
+        mobile.setAttribute('aria-hidden', String(!open))
+        body.style.overflow = open ? 'hidden' : ''
+      })
+      mobile.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMobile))
+    }
+  }
+
+  document.addEventListener('astro:page-load', initNav)
+</script>
+
+<style is:global>
+  /* Auth-aware CTAs ─────────────────────────────────────────────────────────*/
+  [data-auth="user"]  { display: none; }
+  [data-auth="guest"] { display: inline-flex; }
+  :root[data-nav-auth="user"]  [data-auth="guest"] { display: none !important; }
+  :root[data-nav-auth="user"]  [data-auth="user"]  { display: inline-flex !important; }
+  :root[data-nav-auth="guest"] [data-auth="guest"] { display: inline-flex !important; }
+  :root[data-nav-auth="guest"] [data-auth="user"]  { display: none !important; }
+
+  .nm-btns [data-auth="user"],
+  .nm-btns [data-auth="guest"] { flex: 1; justify-content: center; }
+</style>
+
+<style>
+  /* ── Barra ──────────────────────────────────────────────────────────────── */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: transparent;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-bottom: 1px solid transparent;
+    height: 72px;
+    display: flex;
+    align-items: center;
+  }
+
+  .nav.scrolled {
+    height: 60px;
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    backdrop-filter: saturate(180%) blur(16px);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
+    border-bottom-color: var(--border);
+  }
+
+  /* ── Inner: grid de 3 columnas → logo | links | CTAs ───────────────────── */
+  .nav-inner {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    width: 100%;
+    max-width: var(--container-max);
+    margin: 0 auto;
+    padding: 0 var(--gutter);
+    gap: 2rem;
+  }
+
+  /* ── Logo ───────────────────────────────────────────────────────────────── */
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    color: var(--text);
+    text-decoration: none;
+    justify-self: start;
+    transition: opacity 0.2s;
+  }
+  .nav-logo:hover { opacity: 0.8; }
+
+  .nav-mark { color: var(--text); }
+  .nav-brand {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: var(--text);
+  }
+  .nav-beta {
+    font-size: 0.5rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    padding: 0.1rem 0.35rem;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-dim);
+    border-radius: var(--radius-sm);
+  }
+
+  /* ── Links: columna central ─────────────────────────────────────────────── */
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .nav-link {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    padding: 0.45rem 0.75rem;
+    transition: all 0.15s;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    position: relative;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .nav-link-icon {
+    flex-shrink: 0;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+  }
+  .nav-link:hover .nav-link-icon,
+  .nav-link.active .nav-link-icon { opacity: 1; }
+  .nav-link:hover { color: var(--text); background: var(--surface-2); }
+  .nav-link.active { color: var(--text); }
+
+  .nav-link.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0.75rem; right: 0.75rem;
+    height: 1px;
+    background: var(--accent);
+  }
+
+  /* ── CTAs: columna derecha ──────────────────────────────────────────────── */
+  .nav-end {
+    display: flex;
+    align-items: center;
+    justify-self: end;
+  }
+  .nav-actions-wrap {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .nav-divider {
+    width: 1px;
+    height: 14px;
+    background: var(--border-mid);
+  }
+
+  /* ── Hamburger ──────────────────────────────────────────────────────────── */
+  .nav-toggle {
+    display: none;
+    width: 36px; height: 36px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    justify-self: end;
+  }
+  .hamburger-inner {
+    width: 16px; height: 10px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .h-line {
+    width: 100%; height: 1.5px;
+    background: var(--text-dim);
+    transition: all 0.2s ease;
+  }
+  .nav-toggle[aria-expanded="true"] .top { transform: translateY(4.5px) rotate(45deg); }
+  .nav-toggle[aria-expanded="true"] .mid { opacity: 0; }
+  .nav-toggle[aria-expanded="true"] .bot { transform: translateY(-4px) rotate(-45deg); }
+
+  /* ── Panel mobile ───────────────────────────────────────────────────────── */
+  .nav-mobile {
+    position: fixed;
+    top: 60px; inset: 60px 0 0 0;
+    background: var(--bg);
+    z-index: 90;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    overflow-y: auto;
+  }
+  .nav-mobile.open { opacity: 1; pointer-events: auto; }
+  .nm-inner {
+    padding: 1.5rem var(--gutter);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .nm-link {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-dim);
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+  }
+  .nm-link-icon { flex-shrink: 0; opacity: 0.6; }
+  .nm-link.active .nm-link-icon,
+  .nm-link:hover .nm-link-icon { opacity: 1; }
+  .nm-link.active { color: var(--text); }
+
+  .nm-actions {
+    margin-top: 2rem;
+    padding: 1.25rem;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .nm-actions-top { display: flex; align-items: center; gap: 0.75rem; }
+  .nm-btns { display: flex; flex-direction: column; gap: 0.75rem; }
+
+  /* ── Responsive ─────────────────────────────────────────────────────────── */
+  @media (max-width: 900px) {
+    .nav-inner { grid-template-columns: 1fr auto; }
+    .nav-links, .nav-end { display: none; }
+    .nav-toggle { display: flex; }
+  }
+</style>

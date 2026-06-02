@@ -1,0 +1,168 @@
+---
+// PixelLoader.astro — barra top pixel art (4px)
+---
+
+<div id="px-loader" aria-hidden="true" role="presentation" transition:persist="pixel-loader">
+  <div class="px-fill" id="px-fill"></div>
+</div>
+
+<style>
+  #px-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    z-index: 9999;
+    pointer-events: none;
+    display: none;
+    opacity: 1;
+    transition: opacity 0.25s ease;
+  }
+
+  #px-loader.px-done {
+    opacity: 0;
+  }
+
+  .px-fill {
+    height: 100%;
+    width: 0%;
+    position: relative;
+    background: repeating-linear-gradient(
+      to right,
+      var(--text) 0px,
+      var(--text) 6px,
+      transparent 6px,
+      transparent 8px
+    );
+    transition: width 0.1s steps(10, end);
+  }
+
+  /* Punto parpadeante en el extremo del fill */
+  .px-fill::after {
+    content: '';
+    position: absolute;
+    right: -2px;
+    top: 0;
+    width: 4px;
+    height: 4px;
+    background: var(--accent);
+    animation: px-blink 0.8s steps(2, end) infinite;
+  }
+
+  @keyframes px-blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+  }
+</style>
+
+<script>
+  let pxCurrent = 0
+  let pxTarget  = 0
+  let pxRaf: ReturnType<typeof requestAnimationFrame> | null = null
+  let navTimeout: ReturnType<typeof setTimeout> | null = null
+
+  function pxSetTarget(v: number) {
+    pxTarget = Math.min(100, v)
+  }
+
+  function pxTick() {
+    if (pxRaf) cancelAnimationFrame(pxRaf)
+    const fill = document.getElementById('px-fill')
+    if (pxCurrent < pxTarget) {
+      pxCurrent = Math.min(pxTarget, pxCurrent + 5)
+      if (fill) fill.style.width = pxCurrent + '%'
+    }
+    if (pxCurrent < 100) {
+      pxRaf = requestAnimationFrame(pxTick)
+    }
+  }
+
+  function pxHide() {
+    const loader = document.getElementById('px-loader')
+    const fill   = document.getElementById('px-fill')
+    if (!loader) return
+    if (fill) fill.style.width = '100%'
+    setTimeout(() => {
+      loader.classList.add('px-done')
+      setTimeout(() => {
+        loader.style.display = 'none'
+        loader.classList.remove('px-done')
+        if (fill) fill.style.width = '0%'
+        pxCurrent = 0
+        pxTarget  = 0
+      }, 300)
+    }, 150)
+  }
+
+  function pxShow() {
+    const loader = document.getElementById('px-loader')
+    const fill   = document.getElementById('px-fill')
+    if (!loader) return
+    pxCurrent = 0
+    pxTarget  = 0
+    loader.style.display = 'block'
+    loader.offsetHeight  // force reflow
+    loader.classList.remove('px-done')
+    if (fill) fill.style.width = '0%'
+  }
+
+  function pxStart() {
+    pxSetTarget(35)
+    pxTick()
+  }
+
+  // ── Carga inicial — sólo una vez por sesión ──
+  const hasLoaded = sessionStorage.getItem('px-loaded')
+  const loaderEl  = document.getElementById('px-loader')
+
+  if (!hasLoaded) {
+    pxShow()
+    pxStart()
+    sessionStorage.setItem('px-loaded', 'true')
+
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') pxSetTarget(70)
+      if (document.readyState === 'complete')    { pxSetTarget(100); pxTick() }
+    })
+
+    window.addEventListener('load', () => {
+      if (pxRaf) cancelAnimationFrame(pxRaf)
+      pxCurrent = 100
+      pxHide()
+    })
+
+    // Fallback por si load no dispara
+    setTimeout(() => {
+      if (pxRaf) cancelAnimationFrame(pxRaf)
+      pxCurrent = 100
+      pxHide()
+    }, 1500)
+  } else {
+    if (loaderEl) loaderEl.style.display = 'none'
+  }
+
+  // ── Navegaciones SPA — debounce 250ms ──
+  document.addEventListener('astro:before-preparation', () => {
+    navTimeout = setTimeout(() => {
+      pxShow()
+      pxStart()
+    }, 250)
+  })
+
+  document.addEventListener('astro:after-preparation', () => {
+    if (pxCurrent > 0) pxSetTarget(85)
+  })
+
+  document.addEventListener('astro:page-load', () => {
+    if (navTimeout) {
+      clearTimeout(navTimeout)
+      navTimeout = null
+    }
+    if (pxCurrent > 0 || pxRaf) {
+      if (pxRaf) cancelAnimationFrame(pxRaf)
+      pxCurrent = 100
+      pxHide()
+    }
+  })
+</script>

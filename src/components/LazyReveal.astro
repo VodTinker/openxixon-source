@@ -1,0 +1,80 @@
+---
+// LazyReveal.astro
+// Drop this component once in each layout (inside <body>).
+// CSS hiding is gated on [data-lazy-ready] (set in <head> of each layout)
+// so elements are never invisible before JS runs (no FOUC).
+---
+<script>
+  let observer: IntersectionObserver | null = null
+
+  function initLazyReveal() {
+    // Ensure gate is set (persists across SPA navigations via <html>)
+    document.documentElement.dataset.lazyReady = ''
+
+    if (observer) observer.disconnect()
+
+    const elements = document.querySelectorAll<HTMLElement>('.lazy-reveal')
+    if (!elements.length) return
+
+    observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible')
+            observer?.unobserve(entry.target)
+          }
+        })
+      },
+      {
+        threshold: 0.12,
+        rootMargin: '0px 0px -40px 0px',
+      }
+    )
+
+    elements.forEach((el) => {
+      if (el.classList.contains('is-visible')) return  // already revealed
+
+      const rect = el.getBoundingClientRect()
+      if (rect.top < window.innerHeight * 0.95) {
+        // Above fold: instant reveal, bypass transition and stagger delays
+        el.style.transition = 'none'
+        el.style.transitionDelay = '0s'
+        el.classList.add('is-visible')
+        requestAnimationFrame(() => {
+          el.style.removeProperty('transition')
+          el.style.removeProperty('transition-delay')
+        })
+      } else {
+        observer!.observe(el)
+      }
+    })
+  }
+
+  // Initial load (module scripts run after DOMContentLoaded)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initLazyReveal)
+  } else {
+    initLazyReveal()
+  }
+
+  // Re-run after each SPA page swap; rAF ensures new DOM is painted
+  document.addEventListener('astro:page-load', () => {
+    requestAnimationFrame(initLazyReveal)
+  })
+
+  // Tras una View Transition, las CSS animations `.animate-up` se han
+  // ejecutado en paralelo al snapshot del root y llegan al DOM real ya
+  // medio terminadas. Las re-disparamos para que el usuario las vea limpias.
+  // No corre en la carga inicial (astro:after-swap solo dispara en SPA).
+  document.addEventListener('astro:after-swap', () => {
+    const els = document.querySelectorAll<HTMLElement>('.animate-up')
+    els.forEach(el => {
+      el.style.animation = 'none'
+    })
+    requestAnimationFrame(() => {
+      els.forEach(el => {
+        el.style.removeProperty('animation')
+      })
+    })
+  })
+</script>

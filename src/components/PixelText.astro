@@ -1,0 +1,140 @@
+---
+export interface Props {
+  text: string;
+  seed?: number;
+  scale?: number;
+}
+
+const { text, seed = 42, scale = 8 } = Astro.props;
+
+type Px = { x: number; y: number; tone: "base" | "alt" | "hi" };
+
+const PIXEL_FONT: Record<string, string[]> = {
+  A: ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
+  B: ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
+  C: ["01111", "10000", "10000", "10000", "10000", "10000", "01111"],
+  D: ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
+  E: ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
+  F: ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
+  G: ["01111", "10000", "10000", "10111", "10001", "10001", "01111"],
+  H: ["10001", "10001", "10001", "11111", "10001", "10001", "10001"],
+  I: ["01110", "00100", "00100", "00100", "00100", "00100", "01110"],
+  J: ["00111", "00010", "00010", "00010", "10010", "10010", "01100"],
+  K: ["10001", "10010", "10100", "11000", "10100", "10010", "10001"],
+  L: ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
+  M: ["10001", "11011", "10101", "10001", "10001", "10001", "10001"],
+  N: ["10001", "11001", "10101", "10011", "10001", "10001", "10001"],
+  O: ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
+  P: ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
+  Q: ["01110", "10001", "10001", "10001", "10101", "10010", "01101"],
+  R: ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
+  S: ["01111", "10000", "10000", "01110", "00001", "00001", "11110"],
+  T: ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
+  U: ["10001", "10001", "10001", "10001", "10001", "10001", "01110"],
+  V: ["10001", "10001", "10001", "10001", "10001", "01010", "00100"],
+  W: ["10001", "10001", "10001", "10101", "10101", "11011", "10001"],
+  X: ["10001", "10001", "01010", "00100", "01010", "10001", "10001"],
+  Y: ["10001", "10001", "10001", "01010", "00100", "00100", "00100"],
+  Z: ["11111", "00001", "00010", "00100", "01000", "10000", "11111"],
+  ".": ["000", "000", "000", "000", "000", "000", "100"],
+  " ": ["000", "000", "000", "000", "000", "000", "000"],
+  ",": ["000", "000", "000", "000", "000", "01100", "00100"],
+  "-": ["000", "000", "000", "111", "000", "000", "000"],
+};
+
+function generatePixelText(textStr: string, textSeed: number) {
+  const pixels: Px[] = [];
+  const charW = 5;
+  const charH = 7;
+  const gap = 1;
+
+  textStr
+    .toUpperCase()
+    .split("")
+    .forEach((ch, i) => {
+      const glyph = PIXEL_FONT[ch] || PIXEL_FONT[" "];
+      const xOff = i * (charW + gap);
+      glyph.forEach((row, r) => {
+        row.split("").forEach((cell, c) => {
+          if (cell === "1") {
+            const x = xOff + c;
+            const y = r;
+            const pSeed = (x * 7 + y * 13 + i * 3 + textSeed) % 11;
+            const tone: Px["tone"] =
+              pSeed === 0 ? "hi" : pSeed < 3 ? "alt" : "base";
+            pixels.push({ x, y, tone });
+          }
+        });
+      });
+    });
+
+  const width = textStr.length * (charW + gap) - gap;
+  const height = charH;
+  return { pixels, width, height };
+}
+
+const titlePx = generatePixelText(text, seed);
+const T_UNIT = scale;
+const T_W = titlePx.width * T_UNIT;
+const T_H = titlePx.height * T_UNIT;
+---
+
+<div class="pixel-text-wrap" aria-label={text}>
+  <svg
+    class="pixel-text-svg"
+    viewBox={`0 0 ${T_W} ${T_H}`}
+    width={T_W}
+    height={T_H}
+    shape-rendering="crispEdges"
+  >
+    {/* Shadow layer - solid blocks, no transparency for sharpness */}
+    {
+      titlePx.pixels.map((p) => (
+        <rect
+          x={p.x * T_UNIT + scale/2}
+          y={p.y * T_UNIT + scale/2}
+          width={T_UNIT}
+          height={T_UNIT}
+          fill="var(--accent-strong)"
+          opacity="0.25"
+        />
+      ))
+    }
+    {/* Main layer */}
+    {
+      titlePx.pixels.map((p) => (
+        <rect
+          class:list={["hpx", `hpx-${p.tone}`]}
+          x={p.x * T_UNIT}
+          y={p.y * T_UNIT}
+          width={T_UNIT}
+          height={T_UNIT}
+        />
+      ))
+    }
+  </svg>
+</div>
+
+<style>
+  .pixel-text-wrap {
+    display: inline-block;
+  }
+  .hpx {
+    transition: fill 0.2s ease;
+  }
+  .hpx-base {
+    fill: var(--accent);
+  }
+  .hpx-alt {
+    fill: var(--lavender);
+  }
+  .hpx-hi {
+    fill: var(--mint);
+  }
+  :global([data-theme="light"]) .hpx-alt {
+    fill: var(--accent-deep);
+  }
+  :global([data-theme="light"]) .hpx-hi {
+    fill: var(--mint);
+  }
+</style>

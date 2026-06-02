@@ -1,0 +1,278 @@
+---
+import Layout from '../../layouts/Layout.astro'
+
+const lastUpdate = new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })
+---
+
+<Layout title="Política de Privacidad">
+<div class="container">
+
+  <header class="page-header">
+    <div class="breadcrumb">
+      <a href="/">Inicio</a>
+      <span class="sep">/</span>
+      <span>Privacidad</span>
+    </div>
+    <h1 class="page-title">Política de Privacidad</h1>
+    <p class="page-subtitle">Última actualización: {lastUpdate}</p>
+  </header>
+
+  <section class="section" id="privacidad">
+    <div class="section-row">
+      <h2 class="section-title">Aviso Legal y Política de Privacidad</h2>
+      <span class="label">Conforme a RGPD y LSSI-CE</span>
+    </div>
+
+    <div class="bento-grid">
+      <div class="bento-item bento-item--col2 group">
+        <div class="bento-glow"></div>
+        <h2>1. Aviso Legal (Identidad del Responsable)</h2>
+        <p>En cumplimiento del artículo 10 de la Ley 34/2002 (LSSI-CE), se identifican los datos del titular y Responsable del Tratamiento de este sitio web:</p>
+        <ul>
+          <li><strong>Titular / Operador:</strong> VodTinker</li>
+          <li><strong>Domicilio Social:</strong> Gijón, Asturias, España (Código Postal 33201)</li>
+          <li><strong>Email de Contacto:</strong> <a href="mailto:danielfonov71@vodtinker.dev">danielfonov71@vodtinker.dev</a></li>
+        </ul>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>2. Datos que Recopilamos</h2>
+        <p>Procesamos únicamente los datos necesarios para la prestación del servicio API:</p>
+        <ul>
+          <li><strong>Registro de cuenta:</strong> Dirección de correo electrónico y contraseña (cifrada mediante hash seguro).</li>
+          <li><strong>Operación de la API:</strong> Tokens de acceso (API Keys) y registros de uso.</li>
+          <li><strong>Datos de pago:</strong> Procesados de forma segura directamente por Stripe (no almacenamos tarjetas).</li>
+        </ul>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>3. Datos Técnicos Automáticos</h2>
+        <p>Para garantizar la seguridad, disponibilidad y el control de cuotas (rate limiting) del portal:</p>
+        <ul>
+          <li><strong>Dirección IP:</strong> Registrada temporalmente en memoria para mitigar ataques DDoS y aplicar límites.</li>
+          <li><strong>User Agent:</strong> Identificación del cliente/navegador para optimizar las respuestas de la API.</li>
+          <li><strong>Cookies Técnicas:</strong> Estrictamente necesarias para mantener la sesión activa.</li>
+        </ul>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>4. Finalidades del Tratamiento</h2>
+        <p>Tus datos personales se tratan con las siguientes finalidades explícitas:</p>
+        <ul>
+          <li>Gestionar tu registro de usuario y autenticación de acceso.</li>
+          <li>Proveer el servicio API, controlar las cuotas de tu plan (Free/Pro) y facturar el servicio.</li>
+          <li>Prevenir fraudes, abusos en el Sandbox y asegurar el correcto funcionamiento del portal.</li>
+          <li>Resolver dudas y consultas a través de nuestro soporte técnico.</li>
+        </ul>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>5. Legitimación (Base Legal)</h2>
+        <p>Tratamos tus datos de acuerdo con las siguientes bases legales del RGPD:</p>
+        <ul>
+          <li><strong>Ejecución del contrato (Art. 6.1.b):</strong> Para la creación de tu cuenta, generación de API keys y prestación de los servicios contratados.</li>
+          <li><strong>Consentimiento (Art. 6.1.a):</strong> Para la instalación de cookies analíticas no esenciales.</li>
+          <li><strong>Interés legítimo (Art. 6.1.f):</strong> Para auditar la seguridad de la infraestructura y monitorizar el rate limiting.</li>
+        </ul>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>6. Plazo de Conservación</h2>
+        <p>Los datos se conservan únicamente el tiempo estrictamente necesario:</p>
+        <ul>
+          <li><strong>Datos de cuenta:</strong> Mientras mantengas tu perfil activo. Si solicitas la baja, se suprimirán.</li>
+          <li><strong>Logs de peticiones API:</strong> Se eliminan de forma automatizada a los 90 días.</li>
+          <li><strong>Datos de facturación:</strong> Conservados durante 6 años de acuerdo con el artículo 30 del Código de Comercio de España.</li>
+        </ul>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>7. Destinatarios de los Datos</h2>
+        <p>No cedemos ni vendemos tus datos a terceros. Para prestar el servicio, nos apoyamos en encargados de tratamiento que cumplen con el RGPD:</p>
+        <ul>
+          <li><strong>Supabase:</strong> Alojamiento de bases de datos en servidores seguros dentro de la Unión Europea.</li>
+          <li><strong>Cloudflare:</strong> CDN, filtrado de tráfico IP y seguridad web perimetral.</li>
+          <li><strong>Stripe:</strong> Gestión y cobro seguro de suscripciones (con Cláusulas Contractuales Tipo de la CE).</li>
+        </ul>
+      </div>
+
+      <div class="bento-item bento-item--col2 group">
+        <div class="bento-glow"></div>
+        <h2>8. Tus Derechos Legales (RGPD)</h2>
+        <p>Como usuario, tienes pleno derecho a acceder, rectificar, suprimir (derecho al olvido), oponerte, limitar el tratamiento y solicitar la portabilidad de tus datos personales. Para ejercer estos derechos, simplemente envía un correo firmado junto con una copia de tu documento de identidad o equivalente a <a href="mailto:danielfonov71@vodtinker.dev">danielfonov71@vodtinker.dev</a>.</p>
+        <p style="margin-top: 0.5rem;">Si consideras que tus derechos no han sido atendidos debidamente, tienes derecho a presentar una reclamación formal ante la Agencia Española de Protección de Datos (AEPD) a través de su sede electrónica en <a href="https://www.aepd.es" target="_blank" rel="noopener">www.aepd.es</a>.</p>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>9. Medidas de Seguridad</h2>
+        <p>Implementamos medidas técnicas organizativas estrictas:</p>
+        <ul>
+          <li>Conexiones cifradas mediante TLS 1.3 en todo el tráfico.</li>
+          <li>Cifrado de datos en reposo en nuestros servidores y base de datos.</li>
+          <li>Control estricto de acceso interno bajo el principio de mínimo privilegio.</li>
+          <li>Copias de seguridad diarias automatizadas y encriptadas.</li>
+        </ul>
+      </div>
+
+      <div class="bento-item group">
+        <div class="bento-glow"></div>
+        <h2>10. Exclusión de Responsabilidad</h2>
+        <p>OpenXixón es un portal que recopila y transforma datos públicos del Ayuntamiento de Gijón. No nos hacemos responsables de la veracidad u obsolescencia de los datos públicos originales, aunque garantizamos su procesamiento riguroso y transparente.</p>
+      </div>
+    </div>
+  </section>
+
+</div>
+</Layout>
+
+<style>
+  .page-header {
+    padding: 4rem 0 3rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 3rem;
+  }
+
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+
+  .breadcrumb a {
+    color: var(--text-dim);
+    transition: color 0.15s;
+  }
+
+  .breadcrumb a:hover {
+    color: var(--text);
+  }
+
+  .breadcrumb .sep {
+    opacity: 0.5;
+  }
+
+  .page-title {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.5rem;
+  }
+
+  .page-subtitle {
+    font-size: 0.9375rem;
+    color: var(--text-dim);
+  }
+
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .bento-item {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    overflow: hidden;
+  }
+
+  .bento-item:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-strong);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  }
+
+  .bento-glow {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(0,0,0,0.03), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+
+  .bento-item:hover .bento-glow {
+    opacity: 1;
+  }
+
+  .bento-item h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+  }
+
+  .bento-item p {
+    font-size: 0.875rem;
+    line-height: 1.7;
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  .bento-item ul {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0 0;
+  }
+
+  .bento-item li {
+    position: relative;
+    padding-left: 1.25rem;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--text-dim);
+    margin-bottom: 0.35rem;
+  }
+
+  .bento-item li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-size: 0.75rem;
+  }
+
+  .bento-item a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .bento-item a:hover {
+    opacity: 0.8;
+  }
+
+  .bento-item strong {
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .bento-item--col2 {
+    grid-column: span 2;
+  }
+
+  @media (max-width: 768px) {
+    .bento-grid {
+      grid-template-columns: 1fr;
+    }
+    .bento-item--col2 {
+      grid-column: span 1;
+    }
+  }
+</style>

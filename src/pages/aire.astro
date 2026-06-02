@@ -1,0 +1,318 @@
+---
+import Layout from '../layouts/Layout.astro'
+import EmptyState from '../components/EmptyState.astro'
+import AireChart from '../components/charts/AireChart'
+import { db } from '../lib/supabase'
+import { getSession } from '../lib/supabase'
+import type { Plan } from '../lib/tier'
+
+const { user } = await getSession(Astro.cookies, Astro.request)
+let plan: Plan = 'free'
+if (user) {
+  const { data: profile } = await db.from('profiles').select('plan').eq('user_id', user.id).single()
+  plan = (profile?.plan as Plan) ?? 'free'
+}
+
+let errorMessage: string | null = null
+let estacionesData: any[] | null = null
+let medicionesData: any[] | null = null
+
+try {
+  const est = await db.from('estaciones_aire').select('*')
+  estacionesData = est.data
+} catch (e) {
+  console.error('[SSR /aire] estaciones', e)
+  errorMessage = 'No se pudieron cargar los datos de calidad del aire. Inténtalo más tarde.'
+}
+
+// Vitrina pública: mostramos todo el histórico disponible (gating por tier
+// vive en /api/aire, que es lo que monetiza). Cap alto para no traer años.
+try {
+  const med = await db
+    .from('calidad_aire').select('*')
+    .not('no2', 'is', null)
+    .order('fecha', { ascending: false }).limit(2000)
+  medicionesData = med.data
+} catch (e) {
+  console.error('[SSR /aire] mediciones', e)
+  errorMessage = 'No se pudieron cargar los datos de calidad del aire. Inténtalo más tarde.'
+}
+
+const mediciones = medicionesData ?? []
+const estaciones = estacionesData ?? []
+const ultima = mediciones.find(m => m.no2 != null || m.o3 != null || m.pm10 != null || m.pm25 != null) ?? mediciones[0]
+const fechaStr = ultima?.fecha
+  ? new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(ultima.fecha))
+  : null
+
+const getCalidad = (no2: number | null) => {
+  if (no2 === null) return { label: 'N/A', cls: '' }
+  if (no2 <= 40)  return { label: 'Bueno',    cls: 'status--ok' }
+  if (no2 <= 90)  return { label: 'Moderado', cls: 'status--warn' }
+  return                  { label: 'Dañino',  cls: 'status--bad' }
+}
+
+const getEstado = (val: number | null, limit: number) => {
+  if (val === null) return 'N/A'
+  return val > limit ? 'Elevado' : 'Bueno'
+}
+
+const metricCards = ultima ? [
+  { label: 'NO₂',   val: ultima.no2,  unit: 'µg/m³', color: '#E2A66E', limit: 200, tag: getCalidad(ultima.no2).label },
+  { label: 'O₃',    val: ultima.o3,   unit: 'µg/m³', color: '#8AD6FF', limit: 120, tag: getEstado(ultima.o3, 120) },
+  { label: 'PM10',  val: ultima.pm10, unit: 'µg/m³', color: '#D1B8FF', limit: 50,  tag: getEstado(ultima.pm10, 50) },
+  { label: 'PM2.5', val: ultima.pm25, unit: 'µg/m³', color: '#00DB7C', limit: 25,  tag: getEstado(ultima.pm25, 25) },
+] : []
+
+// ── Chart data for client — grouped by station ───────────────────────────
+const allPts = [...mediciones].reverse()
+
+// Collect unique station IDs
+const stationIds = [...new Set(allPts.map(p => p.estacion).filter(Boolean))]
+
+// Por estación: todas las lecturas disponibles dentro del cap del SSR.
+// AireChart filtra por rango (24h/7d/30d/todo) en cliente con timestamps.
+const byStation: Record<string, { labels: string[]; timestamps: string[]; no2: (number|null)[]; o3: (number|null)[]; pm10: (number|null)[]; pm25: (number|null)[] }> = {}
+for (const sid of stationIds) {
+  const pts = allPts.filter(p => p.estacion === sid)
+  const firstDay = pts.length > 0 ? new Date(pts[0].fecha).toDateString() : null
+  const lastDay  = pts.length > 0 ? new Date(pts[pts.length - 1].fecha).toDateString() : null
+  const spansMultipleDays = firstDay !== lastDay
+  byStation[sid] = {
+    labels: pts.map(p => {
+      const d = new Date(p.fecha)
+      return spansMultipleDays
+        ? d.toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+        : d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+    }),
+    timestamps: pts.map(p => p.fecha),
+    no2:   pts.map(p => p.no2  ?? null),
+    o3:    pts.map(p => p.o3   ?? null),
+    pm10:  pts.map(p => p.pm10 ?? null),
+    pm25:  pts.map(p => p.pm25 ?? null),
+  }
+}
+
+// Map id → nombre de estación
+const stationNames: Record<string, string> = {}
+for (const e of estaciones ?? []) {
+  stationNames[String(e.id)] = e.titulo ?? String(e.id)
+}
+
+const aireChartData = { byStation, stationIds, stationNames }
+---
+
+<Layout title="Calidad del Aire">
+  <div class="container">
+    <header class="page-header">
+      <div>
+        <span class="label label-amber">Medioambiente</span>
+        <h1>Calidad del Aire</h1>
+        <p>Monitoreo atmosférico de las estaciones municipales de Gijón.</p>
+      </div>
+      <span class="badge" class:list={[plan === 'free' ? 'badge-free' : 'badge-pro']}>{plan.toUpperCase()}</span>
+    </header>
+
+    {errorMessage && (
+      <EmptyState message={errorMessage} />
+    )}
+
+    {!errorMessage && (
+    <>
+    <!-- Última lectura: stats -->
+    {ultima && (
+      <section class="data-section">
+        <div class="section-head">
+          <span class="label">Última lectura</span>
+          {fechaStr && <span class="mono ts">{fechaStr}</span>}
+        </div>
+        <div class="metrics-row">
+          {metricCards.map(m => (
+            <div class="metric-cell">
+              <span class="metric-label mono">{m.label}</span>
+              <div class="metric-main">
+                <span class="metric-val mono" style={"color:" + m.color}>{m.val ?? '--'}</span>
+                <span class="metric-unit">{m.unit}</span>
+              </div>
+              <div class="metric-bar">
+                <div class="metric-fill" style={"width:" + (m.val ? Math.min((m.val/m.limit)*100,100) : 0) + "%; background:" + m.color}></div>
+              </div>
+              <span class="calidad-tag">{m.tag}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
+
+    <!-- Gráfico de líneas interactivo -->
+    {mediciones.length > 1 && (
+      <section class="data-section">
+        <span class="label">Evolución temporal</span>
+        <AireChart
+          byStation={aireChartData.byStation}
+          stationIds={aireChartData.stationIds}
+          stationNames={aireChartData.stationNames}
+          client:only="react"
+        />
+      </section>
+    )}
+
+    <!-- Estaciones -->
+    <section class="data-section">
+      <span class="label">Puntos de monitoreo</span>
+      <div class="stations-list">
+        {estaciones?.map(e => (
+          <div class="station-item">
+            <span class="status-dot"></span>
+            <div>
+              <strong>{e.titulo}</strong>
+              <span class="mono" style="font-size:0.6875rem; color:var(--text-muted); display:block; margin-top:0.15rem">{e.direccion}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- Tabla historial -->
+    <section class="data-section">
+      <span class="label">Historial de mediciones</span>
+      {mediciones.length > 0 ? (
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha / hora</th>
+                <th>Estación</th>
+                <th>NO₂</th>
+                <th>O₃</th>
+                <th>PM10</th>
+                <th>PM2.5</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mediciones.slice(0, 24).map(m => (
+                <tr>
+                  <td class="mono">{new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(m.fecha))}</td>
+                  <td><span class="station-tag mono">{m.estacion}</span></td>
+                  <td class:list={[getCalidad(m.no2).cls, 'mono']}>{m.no2 ?? '--'}</td>
+                  <td class="mono">{m.o3 ?? '--'}</td>
+                  <td class="mono">{m.pm10 ?? '--'}</td>
+                  <td class="mono">{m.pm25 ?? '--'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <EmptyState message="Sin mediciones disponibles en la ventana de tu plan." />
+      )}
+    </section>
+    </>
+    )}
+  </div>
+</Layout>
+
+
+<style>
+  .page-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border);
+  }
+  .page-header h1 { margin: 0.75rem 0 0.4rem; }
+  .page-header p  { font-size: 0.9375rem; }
+
+  .data-section { margin-bottom: 3rem; }
+  .section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;
+  }
+  .ts { font-size: 0.6875rem; color: var(--text-muted); }
+
+  /* Metrics */
+  .metrics-row {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    border: 1px solid var(--border); overflow: hidden;
+  }
+  .metric-cell {
+    padding: 1.25rem; border-right: 1px solid var(--border);
+    background: var(--surface); display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  .metric-cell:last-child { border-right: none; }
+  .metric-label { font-size: 0.625rem; color: var(--text-muted); letter-spacing: 0.04em; }
+  .metric-main  { display: flex; align-items: baseline; gap: 0.4rem; }
+  .metric-val   { font-size: 2rem; font-weight: 500; line-height: 1; }
+  .metric-unit  { font-size: 0.6875rem; color: var(--text-muted); }
+  .metric-bar   { height: 2px; background: var(--border); overflow: hidden; }
+  .metric-fill  { height: 100%; transition: width 0.4s; }
+  .calidad-tag  { font-size: 0.625rem; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.05em; }
+
+  /* ── Line Chart ── */
+  .chart-legend { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+  .legend-item  { display: flex; align-items: center; gap: 0.4rem; }
+  .legend-dot   { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .legend-lbl   { font-size: 0.6875rem; color: var(--text-muted); letter-spacing: 0.04em; }
+
+  .station-filters {
+    display: flex;
+    gap: 0.375rem;
+    flex-wrap: wrap;
+  }
+  .filter-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6875rem;
+    padding: 0.3rem 0.75rem;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.03em;
+  }
+  .filter-btn:hover { border-color: var(--accent); color: var(--text); }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .chart-card {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 1.25rem;
+    position: relative;
+  }
+
+  .chart-caption {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.625rem;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    letter-spacing: 0.05em;
+  }
+
+  /* Stations */
+  .stations-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.5rem; }
+  .station-item {
+    display: flex; align-items: flex-start; gap: 0.75rem;
+    padding: 0.75rem 1rem; border: 1px solid var(--border); background: var(--surface);
+  }
+  .station-item strong { font-size: 0.875rem; font-weight: 500; }
+  .station-tag { font-size: 0.6875rem; padding: 0.15rem 0.4rem; background: var(--surface-2); color: var(--text-dim); }
+
+  .status--ok   { color: var(--sage); font-weight: 600; }
+  .status--warn { color: var(--amber); font-weight: 600; }
+  .status--bad  { color: var(--brick); font-weight: 600; }
+
+  @media (max-width: 768px) {
+    .page-header { flex-direction: column; gap: 1rem; }
+    .metrics-row { grid-template-columns: repeat(2, 1fr); }
+    .metric-cell:nth-child(2) { border-right: none; }
+    .metric-cell:nth-child(1),
+    .metric-cell:nth-child(2) { border-bottom: 1px solid var(--border); }
+    .chart-card canvas { height: 200px !important; }
+    .station-filters { flex-direction: column; align-items: flex-start; }
+  }
+  @media (max-width: 480px) {
+    .metrics-row { grid-template-columns: 1fr; }
+    .metric-cell { border-right: none; border-bottom: 1px solid var(--border); }
+    .metric-cell:last-child { border-bottom: none; }
+    .section-head { flex-direction: column; align-items: flex-start; }
+  }
+</style>
