@@ -15,9 +15,9 @@ export default defineConfig({
         'react-dom',
         '@supabase/supabase-js',
         '@supabase/ssr',
-        'leaflet',
-        'chart.js'
-      ]
-    }
+        'maplibre-gl',
+        'chart.js',
+      ],
+    },
   }
 })

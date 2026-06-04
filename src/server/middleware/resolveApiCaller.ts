@@ -16,12 +16,12 @@
  */
 
 import type { AstroCookies } from 'astro'
-import { db, getSession } from './supabase'
-import { isWithinLimit, TIER_LIMITS } from './tier'
-import { checkRateLimit, getClientIp } from './rate-limit'
-import type { Plan } from './tier'
+import { db, getSession } from '../supabase'
+import { isWithinLimit, TIER_LIMITS } from '../../lib/tier'
+import { checkRateLimit, getClientIp } from './rateLimitStore'
+import type { Plan } from '../../lib/tier'
 
-const ANON_LIMIT_PER_MIN = 3
+const ANON_LIMIT_PER_MIN = 30
 const BURST_LIMITS: Record<Plan, number> = {
   free: 60,
   pro:  300,

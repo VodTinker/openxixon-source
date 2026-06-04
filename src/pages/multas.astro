@@ -1,8 +1,8 @@
 ---
 import Layout from '../layouts/Layout.astro'
 import MultasChart from '../components/charts/MultasChart'
-import { db } from '../lib/supabase'
-import { getSession } from '../lib/supabase'
+import { db } from '../server/supabase'
+import { getSession } from '../server/supabase'
 import type { Plan } from '../lib/tier'
 
 const { user } = await getSession(Astro.cookies, Astro.request)

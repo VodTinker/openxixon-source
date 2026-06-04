@@ -1,22 +1,13 @@
-/**
- * data/inversiones.ts
- * --------------------
- * Acceso a datos de inversiones públicas municipales con filtros opcionales.
- */
-
 import { db } from '../supabase'
-import type { Plan } from '../tier'
+import type { Plan } from '../../lib/types'
 
 export interface InversionesFilters {
   estado?: string | null
   entidad?: string | null
-  /** Máximo 1000; por defecto 200 */
   limit?: number
 }
 
-export function getInversionesData(_plan: Plan, filters: InversionesFilters = {}) {
-  // Las inversiones municipales son datos irregulares (no hay adjudicaciones diarias),
-  // así que no aplicamos ventana histórica por plan — devolvemos los más recientes.
+export async function inversionesHandler(_plan: Plan, filters: InversionesFilters = {}): Promise<any[]> {
   const limit = Math.max(1, Math.min(filters.limit ?? 200, 1000))
 
   let query = db
@@ -27,7 +18,11 @@ export function getInversionesData(_plan: Plan, filters: InversionesFilters = {}
   if (filters.estado) query = query.eq('estado_actual', filters.estado)
   if (filters.entidad) query = query.eq('entidad', filters.entidad)
 
-  return query
+  query = query
     .order('fecha_adjudicacion', { ascending: false, nullsFirst: false })
     .limit(limit)
+
+  const { data, error } = await query
+  if (error) throw error
+  return (data ?? []) as any[]
 }

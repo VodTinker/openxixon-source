@@ -1,10 +1,19 @@
 import { defineMiddleware } from 'astro:middleware'
-import { getSession } from './lib/supabase'
+import { applySecurityHeaders } from './server/middleware/securityHeaders'
+import { applyCacheHeaders } from './server/middleware/cacheHeaders'
+import { requireAppSession } from './server/middleware/auth'
 
-export const onRequest = defineMiddleware(async ({ request, cookies, redirect, url }, next) => {
-  if (url.pathname.startsWith('/app')) {
-    const { user } = await getSession(cookies, request)
-    if (!user) return redirect('/login')
+export const onRequest = defineMiddleware(async (context, next) => {
+  const { url, cookies, request } = context
+  const { pathname } = url
+
+  if (pathname.startsWith('/app')) {
+    const redirect = await requireAppSession(cookies, request)
+    if (redirect) return redirect
   }
-  return next()
+
+  const response = await next()
+
+  const secured = applySecurityHeaders(response)
+  return applyCacheHeaders(secured, pathname)
 })

@@ -1,27 +1,12 @@
-import type { APIRoute } from 'astro'
-import { resolveApiCaller, apiResponse } from '../../lib/api-auth'
-import { getMultasData } from '../../lib/data/multas'
+import { multasHandler } from '../../server/handlers/multas'
+import { multasQuerySchema, type MultasQuery } from '../../server/schemas/multas'
+import { withApi } from '../../server/withApi'
 
-export const GET: APIRoute = async ({ request, cookies }) => {
-  try {
-    const caller = await resolveApiCaller(request, cookies)
-    if (!caller.ok) return caller.response
-
-    const url = new URL(request.url)
-    const rawLimit = parseInt(url.searchParams.get('limit') ?? '')
-    const { data, error } = await getMultasData(caller.plan, {
-      anio: url.searchParams.get('anio'),
-      calificacion: url.searchParams.get('calificacion'),
-      limit: Number.isNaN(rawLimit) ? 500 : rawLimit,
-    })
-
-    if (error) {
-      console.error('[API /multas]', error)
-      return new Response(JSON.stringify({ error: 'Error al consultar las multas de tráfico.' }), { status: 500, headers: { 'Content-Type': 'application/json' } })
-    }
-    return apiResponse(data, caller)
-  } catch (err) {
-    console.error('[API /multas] unexpected', err)
-    return new Response(JSON.stringify({ error: 'Error interno del servidor.' }), { status: 500, headers: { 'Content-Type': 'application/json' } })
-  }
-}
+export const GET = withApi({
+  querySchema: multasQuerySchema,
+  handler: async (caller, q: MultasQuery) => {
+    const { limit, ...filters } = q
+    return multasHandler(caller.plan, { ...filters, limit })
+  },
+  cacheable: true,
+})

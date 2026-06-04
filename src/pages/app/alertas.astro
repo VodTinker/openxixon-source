@@ -1,6 +1,6 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro'
-import { db, getSession } from '../../lib/supabase'
+import { db, getSession } from '../../server/supabase'
 
 const { user } = await getSession(Astro.cookies, Astro.request)
 

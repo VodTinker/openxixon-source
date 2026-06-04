@@ -1,5 +1,5 @@
 ---
-import { createSupabaseClient } from '../../lib/supabase'
+import { createSupabaseClient } from '../../server/supabase'
 
 const supabase = createSupabaseClient(Astro.cookies, Astro.request)
 const code = Astro.url.searchParams.get('code')

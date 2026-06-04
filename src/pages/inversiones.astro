@@ -1,7 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro'
 import EmptyState from '../components/EmptyState.astro'
-import { db, getSession } from '../lib/supabase'
+import { db, getSession } from '../server/supabase'
 import type { Plan } from '../lib/tier'
 
 const { user } = await getSession(Astro.cookies, Astro.request)

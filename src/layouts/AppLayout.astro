@@ -4,7 +4,7 @@ import ThemeToggle from '../components/ThemeToggle.astro'
 import PixelLoader from '../components/PixelLoader.astro'
 import LazyReveal from '../components/LazyReveal.astro'
 import { ClientRouter } from 'astro:transitions'
-import { db, getSession } from '../lib/supabase'
+import { db, getSession } from '../server/supabase'
 
 interface Props { title: string }
 const { title } = Astro.props

@@ -1,8 +1,8 @@
 ---
 import Layout from '../layouts/Layout.astro'
 import IncidenciasChart from '../components/charts/IncidenciasChart'
-import { db } from '../lib/supabase'
-import { getSession } from '../lib/supabase'
+import { db } from '../server/supabase'
+import { getSession } from '../server/supabase'
 import { getDateFilter } from '../lib/tier'
 import type { Plan } from '../lib/tier'
 

@@ -1,23 +1,13 @@
-/**
- * data/multas.ts
- * --------------
- * Acceso a datos de multas de tráfico con filtros opcionales.
- * Nota: los datos de multas no tienen fecha continua (son agregados mensuales),
- * por lo que no se aplica la ventana histórica del plan.
- */
-
 import { db } from '../supabase'
-import type { Plan } from '../tier'
+import type { Plan } from '../../lib/types'
 
 export interface MultasFilters {
   anio?: string | null
   calificacion?: string | null
-  /** Máximo 1000; por defecto 500 */
   limit?: number
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function getMultasData(_plan: Plan, filters: MultasFilters = {}) {
+export async function multasHandler(_plan: Plan, filters: MultasFilters = {}): Promise<any[]> {
   const limit = Math.max(1, Math.min(filters.limit ?? 500, 1000))
 
   let query = db
@@ -33,5 +23,7 @@ export function getMultasData(_plan: Plan, filters: MultasFilters = {}) {
   }
   if (filters.calificacion) query = query.eq('calificacion', filters.calificacion)
 
-  return query
+  const { data, error } = await query
+  if (error) throw error
+  return (data ?? []) as any[]
 }
