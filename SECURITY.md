@@ -11,7 +11,7 @@
 
 Si descubres una vulnerabilidad de seguridad en OpenXixón, por favor no la reportes públicamente.
 
-En su lugar, envía un email a **security@openxixon.vodtinker.dev** con:
+En su lugar, envía un email a **danielfonov71@vodtinker.dev** con:
 
 - Descripción del problema
 - Pasos para reproducir
